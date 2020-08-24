@@ -58,7 +58,7 @@ export default class Game extends Phaser.Scene {
             let lookUp = this.players[1].hand.lookUp;
             for(let i = 0; i < lookUp.length; i++) {
                 let lookUpCard = new Card(this);
-                lookUpCard.renderFront(330 + (i * 70), lookUp[i], false);
+                lookUpCard.renderFront(330 + (i * 70), 120, lookUp[i], false);
                 lookUpCard.card.angle = 180;
             }
         }
