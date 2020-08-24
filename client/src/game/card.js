@@ -1,10 +1,24 @@
 export default class Card {
     constructor(scene) {
-       this.scene = scene; 
+       this.scene = scene;
     }
 
-    init(x, y, sprite, draggable) {
-        let card = this.scene.add.image(x, y, sprite).setScale(2.0, 2.0).setInteractive();
+    renderBack(x, y, sprite) {
+        let card = this.scene.add.image(x, y, sprite).setScale(2.0, 2.0);
+        this.card = card;
+        return card;
+    }
+
+    renderFront(x, y, cardData, draggable) {
+        let card;
+        if(cardData.value != -1) {
+            let sprite = cardData.type + "-sheet";
+            card = this.scene.add.image(x, y, sprite, cardData.value).setScale(2.0, 2.0).setInteractive();
+        }
+        else {
+            let sprite = "blue-joker";
+            card = this.scene.add.image(x, y, sprite).setScale(2.0, 2.0).setInteractive();
+        }
         if(draggable) {
             this.scene.input.setDraggable(card);
             card.on("pointerover", () => {
