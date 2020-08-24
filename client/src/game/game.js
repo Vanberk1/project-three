@@ -19,19 +19,24 @@ export default class Game extends Phaser.Scene {
 
         this.players = [];
 
-        this.desk = new Desk(this);
-        this.desk.dealCards(this.players, 1);
-
         // this.card = new Card(this);
         // this.card = this.card.init(300, 300, "blue-card-back");
-
+        
         // this.card.on("pointerover", () => {
         //     this.card.setScale(3.5, 3.5);
         // });
-
+        
         // this.card.on("pointerout", () => {
         //     this.card.setScale(3.0, 3.0);
         // });
+        
+                
+        this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+        this.dealText.on('pointerdown', () => {
+            this.desk = new Desk(this);
+            this.desk.dealCards(this.players, 1);
+            this.dealText.visible = false;
+        })
 
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
