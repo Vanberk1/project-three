@@ -1,6 +1,7 @@
 import Desk from './desk';
 import Player from './player';
 import Card from './card';
+import io from 'socket.io-client';
 
 export default class Game extends Phaser.Scene {
     constructor() {
@@ -124,6 +125,13 @@ export default class Game extends Phaser.Scene {
 
     create() {
         let self = this;
+
+
+        this.socket = io.connect('http://localhost:3000');
+
+        this.socket.on('connect', () => {
+            console.log("Connected");
+        });
 
         this.players = [];
 
