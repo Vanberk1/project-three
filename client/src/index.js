@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import InputTextPlugin from 'phaser3-rex-plugins/plugins/inputtext-plugin.js';
 import Game from "./game/game";
 
 const config = {
@@ -10,6 +11,17 @@ const config = {
     Game
   ],
   pixelArt: true,
+  dom: {
+      createContainer: true
+  },  
+  plugins: {
+    global: [{
+        key: 'rexInputTextPlugin',
+        plugin: InputTextPlugin,
+        start: true
+      },
+    ]
+  }
 };
 
 

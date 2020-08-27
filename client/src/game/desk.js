@@ -73,7 +73,6 @@ export default class Desk {
     }
 
     dealCards(players) {
-
         for(let i = 0; i < players.length; i++) {
             for(let j = 0; j < 3; j++) {
                 let cardIndex = Math.floor(Math.random() * this.desk.length);

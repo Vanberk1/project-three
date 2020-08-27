@@ -2,6 +2,7 @@ import Desk from './desk';
 import Player from './player';
 import Card from './card';
 import io from 'socket.io-client';
+import InputText from 'phaser3-rex-plugins/plugins/inputtext.js';
 
 export default class Game extends Phaser.Scene {
     constructor() {
@@ -112,6 +113,10 @@ export default class Game extends Phaser.Scene {
         }
     }
 
+    renderGames(games) {
+
+    }
+
     preload() {
         this.load.spritesheet("heart-sheet", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
         this.load.spritesheet("club-sheet", "src/assets/club-sheet.png", { frameWidth: 35, frameHeight: 47 });
@@ -126,6 +131,13 @@ export default class Game extends Phaser.Scene {
     create() {
         let self = this;
 
+        // Client state
+
+        this.player = null;
+        this.game = null;
+        this.opponents = [];
+        
+        // Socket connection
 
         this.socket = io.connect('http://localhost:3000');
 
@@ -133,14 +145,25 @@ export default class Game extends Phaser.Scene {
             console.log("Connected");
         });
 
-        this.players = [];
+        this.socket.on('newClient', (data) => {
+            self.player = new Player(self, data.clientId);
+            console.log(self.player);
+        });
 
-        for(let i = 0; i < 4; i++) {
-            let player = new Player(this, i);
-            this.players.push(player);
-        }
-                
+        this.socket.on('createGame', (data) => {
+            self.game = data.game;
+            console.log(self.game);
+        });
+
+        this.socket.on('joinGame', (data) => {
+            self.game = data.game;
+            console.log(self.game);
+        });
+
+        // Game elements
+
         this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+        this.dealText.visible = false;
         this.dealText.on('pointerdown', () => {
             this.desk = new Desk(this);
             this.desk.dealCards(this.players);
@@ -148,9 +171,42 @@ export default class Game extends Phaser.Scene {
             this.renderDesk(this.desk);
             this.renderPlayerHand();
             this.renderOpponentsHands();
-        })
+        });
 
+        this.createGameButton = this.add.text(100, 100, ['Crear partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+        
+        this.createGameButton.on('pointerdown', () => {
+            let payLoad = {
+                clientId: self.player.id
+            }
+            console.log(payLoad);
+            this.socket.emit('createGame', payLoad);
+        });
 
+        this.joinGameButton = this.add.text(300, 100, ['Unirse a una partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+        let inputConfig = {
+            align: "left",
+            placeholder: "Código de la partida",
+            backgraundColor: "red",
+            border: 1,
+            borderColor: 'yellow',
+        };
+        this.inputText = new InputText(this, 350, 50, 300, 20, inputConfig);
+        this.add.existing(this.inputText);
+
+        this.joinGameButton.on('pointerdown', () => {
+            if(this.inputText.text != "") {
+                console.log("text: ", this.inputText.text);
+                let gameId = this.inputText.text;
+                let payLoad = {
+                    clientId: self.player.id,
+                    gameId: gameId
+                }
+                this.socket.emit('joinGame', payLoad);
+            }
+        });
+
+        // Cards interactions
 
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
