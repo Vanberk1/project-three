@@ -57,6 +57,11 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('startGame', (data) => {
+        let desk = JSON.parse(JSON.stringify(deskState));
+        console.log(desk);
+    });
+
     socket.on('disconnect', () => {
         console.log('user '+ socket.id +' disconnected');
         delete clientsHash[socket.id];

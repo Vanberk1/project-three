@@ -11,6 +11,32 @@ export default class Game extends Phaser.Scene {
         });
     }
 
+    drawLobby() {
+        this.createGameButton.visible = false;
+        this.joinGameButton.visible = false;
+        this.inputText.visible = false;
+
+        console.log("Client id: " + this.clientId);
+        console.log("Host id: " + this.game.hostId);
+
+        if(this.player.id == this.game.hostId) {
+            this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+            this.dealText.on('pointerdown', () => {
+                let payLoad = {
+                    gameId: this.game.gameId 
+                }
+                this.socket.emit('startGame', payLoad);
+            });
+        }
+
+        this.playersNames = [];
+        let players = this.game.players;
+        for(let i = 0; i < players.length; i++) {
+            let playerName = "Player " + players[i];
+            this.playersNames.push(this.add.text(200, 50 + (i * 25), [playerName]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff'));
+        }
+    }
+
     renderDesk(desk) {
         let card = new Card(this);
         card.renderBack(500, 300, "red-card-back");
@@ -113,10 +139,6 @@ export default class Game extends Phaser.Scene {
         }
     }
 
-    renderGames(games) {
-
-    }
-
     preload() {
         this.load.spritesheet("heart-sheet", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
         this.load.spritesheet("club-sheet", "src/assets/club-sheet.png", { frameWidth: 35, frameHeight: 47 });
@@ -153,28 +175,19 @@ export default class Game extends Phaser.Scene {
         this.socket.on('createGame', (data) => {
             self.game = data.game;
             console.log(self.game);
+            self.drawLobby();
+
         });
 
         this.socket.on('joinGame', (data) => {
             self.game = data.game;
             console.log(self.game);
+            self.drawLobby();
         });
+
 
         // Game elements
-
-        this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
-        this.dealText.visible = false;
-        this.dealText.on('pointerdown', () => {
-            this.desk = new Desk(this);
-            this.desk.dealCards(this.players);
-            this.dealText.visible = false;
-            this.renderDesk(this.desk);
-            this.renderPlayerHand();
-            this.renderOpponentsHands();
-        });
-
         this.createGameButton = this.add.text(100, 100, ['Crear partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
-        
         this.createGameButton.on('pointerdown', () => {
             let payLoad = {
                 clientId: self.player.id
