@@ -1,5 +1,4 @@
 import Desk from './desk';
-import Player from './player';
 import Card from './card';
 import io from 'socket.io-client';
 import InputText from 'phaser3-rex-plugins/plugins/inputtext.js';
@@ -30,7 +29,7 @@ export default class Game extends Phaser.Scene {
         }
 
         this.playersNames = [];
-        let players = this.game.players;
+        let players = this.game.clients;
         for(let i = 0; i < players.length; i++) {
             let playerName = "Player " + players[i];
             this.playersNames.push(this.add.text(200, 50 + (i * 25), [playerName]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff'));
@@ -160,7 +159,6 @@ export default class Game extends Phaser.Scene {
         this.opponents = [];
         
         // Socket connection
-
         this.socket = io.connect('http://localhost:3000');
 
         this.socket.on('connect', () => {
@@ -168,7 +166,9 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('newClient', (data) => {
-            self.player = new Player(self, data.clientId);
+            self.player = {
+                id: data.clientId
+            };
             console.log(self.player);
         });
 
@@ -176,7 +176,6 @@ export default class Game extends Phaser.Scene {
             self.game = data.game;
             console.log(self.game);
             self.drawLobby();
-
         });
 
         this.socket.on('joinGame', (data) => {
@@ -186,11 +185,13 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('startGame', (data) => {
-            this.dealText.visible = false;
+            if(this.dealText) {
+                this.dealText.visible = false;
+            }
             this.playersNames.forEach(name => {
                 name.visible = false;
             });
-            
+            console.log(data);
         });
 
 
@@ -228,7 +229,6 @@ export default class Game extends Phaser.Scene {
         });
 
         // Cards interactions
-
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
             gameObject.y = dragY;

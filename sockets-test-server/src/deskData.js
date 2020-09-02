@@ -1,4 +1,4 @@
-const deskState = {
+const deskData = {
     desk: [
         { type: "joker", value: -1 }, 
         { type: "joker", value: -1 }, 
@@ -108,9 +108,7 @@ const deskState = {
         { type: "spade", value: 10 }, 
         { type: "spade", value: 11 }, 
         { type: "spade", value: 12 }, 
-    ],
-    pile: [],
-    discarted: []
+    ]
 }
 
-module.exports = deskState;
+module.exports = deskData;
