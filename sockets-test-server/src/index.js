@@ -60,6 +60,16 @@ io.on('connection', (socket) => {
     socket.on('startGame', (data) => {
         let desk = JSON.parse(JSON.stringify(deskState));
         console.log(desk);
+        let game = gamesHash[data.gameId];
+        let players = game.players;
+
+        let payLoad = {
+
+        };
+
+        players.forEach(player => {
+            player.emit("startGame", payLoad);
+        });
     });
 
     socket.on('disconnect', () => {

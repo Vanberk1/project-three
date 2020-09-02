@@ -185,6 +185,14 @@ export default class Game extends Phaser.Scene {
             self.drawLobby();
         });
 
+        this.socket.on('startGame', (data) => {
+            this.dealText.visible = false;
+            this.playersNames.forEach(name => {
+                name.visible = false;
+            });
+            
+        });
+
 
         // Game elements
         this.createGameButton = this.add.text(100, 100, ['Crear partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
