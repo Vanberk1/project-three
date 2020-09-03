@@ -1,7 +1,13 @@
-import Desk from './desk';
-import Card from './card';
 import io from 'socket.io-client';
 import InputText from 'phaser3-rex-plugins/plugins/inputtext.js';
+
+const types = {
+    0: 'club',
+    1: 'diamond',
+    2: 'heart',
+    3: 'spade',
+    4: 'joker'
+};
 
 export default class Game extends Phaser.Scene {
     constructor() {
@@ -36,105 +42,161 @@ export default class Game extends Phaser.Scene {
         }
     }
 
-    renderDesk(desk) {
-        let card = new Card(this);
-        card.renderBack(500, 300, "red-card-back");
-
-        let top = desk.getTopOfPile();
-        let topCard = new Card(this);
-        topCard.renderFront(400, 300, top, false);
-    }
-
     renderPlayerHand() {
-        let hand = this.players[0].hand.hand;
+        let playerCards = this.game.state.clientCards;
+        let hand = playerCards.hand;
         for(let i = 0; i < hand.length; i++) {
-            console.log(hand[i].type + " - " + (hand[i].value + 1));
-            let handCard = new Card(this);
-            handCard.renderFront(330 + (i * 70), 600, hand[i], true);
+            let card;
+            console.log("Hand: " + types[hand[i].type] + " - " + (hand[i].value + 1));
+            if(hand[i].value != -1) {
+                let spritesheet = types[hand[i].type] + "-sheet";
+                card = this.add.image(330 + (i * 70), 600, spritesheet, hand[i].value).setScale(2.0, 2.0).setInteractive();
+            }
+            else {
+                card = this.add.image(330 + (i * 70), 600, "blue-joker").setScale(2.0, 2.0).setInteractive();
+            }
+            this.makeDraggeable(card);
         }
 
-        let lookDown = this.players[0].hand.lookDown;
+        let lookDown = playerCards.lookDown;
         for(let i = 0; i < lookDown.length; i++) {
-            let lookDownCard = new Card(this);
-            lookDownCard.renderBack(330 + (i * 70), 500, "blue-card-back");
+            this.add.image(330 + (i * 70), 500, "blue-card-back").setScale(2.0, 2.0);
         }
         
-        let lookUp = this.players[0].hand.lookUp;
+        let lookUp = playerCards.lookUp;
         for(let i = 0; i < lookUp.length; i++) {
-            let lookUpCard = new Card(this);
-            lookUpCard.renderFront(330 + (i * 70), 480, lookUp[i], false);
+            let card;
+            console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
+            if(lookUp[i].value != -1) {
+                let spritesheet = types[lookUp[i].type] + "-sheet";
+                this.add.image(330 + (i * 70), 480, spritesheet, lookUp[i].value).setScale(2.0, 2.0).setInteractive();
+            }
+            else {
+                this.add.image(330 + (i * 70), 480, "blue-joker").setScale(2.0, 2.0).setInteractive();
+            }
         }
     }
 
     renderOpponentsHands() {
-        {
-            let hand = this.players[1].hand.hand;
-            for(let i = 0; i < hand.length; i++) {
-                let handCard = new Card(this);
-                handCard.renderBack(330 + (i * 70), 0, "red-card-back");
-                handCard.card.angle = 180;
-            }
+        let opponentsCards = this.game.state.opponentsCards;
 
-            let lookDown = this.players[1].hand.lookDown;
-            for(let i = 0; i < lookDown.length; i++) {
-                let lookDownCard = new Card(this);
-                lookDownCard.renderBack(330 + (i * 70), 100, "blue-card-back");
-                lookDownCard.card.angle = 180;
+        for(let i = 0; i < opponentsCards.length; i++) {
+            if(i == 0) {
+                let handCount = opponentsCards[i].opponentHandCount;
+                for(let i = 0; i < handCount; i++) {
+                    let card = this.add.image(330 + (i * 70), 0, "red-card-back").setScale(2.0, 2.0);
+                    card.angle = 180;
+                }
+    
+                let lookDownCount = opponentsCards[i].opponentLookDownCount;
+                for(let i = 0; i < lookDownCount; i++) {
+                    let card = this.add.image(330 + (i * 70), 100, "blue-card-back").setScale(2.0, 2.0);
+                    card.angle = 180;
+                }
+                
+                let lookUp = opponentsCards[i].opponentLookUp;
+                for(let i = 0; i < lookUp.length; i++) {
+                    let card;
+                    console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
+                    if(lookUp[i].value != -1) {
+                        let spritesheet = types[lookUp[i].type] + "-sheet";
+                        card = this.add.image(330 + (i * 70), 120, spritesheet, lookUp[i].value).setScale(2.0, 2.0);
+                    }
+                    else {
+                        card = this.add.image(330 + (i * 70), 120, "blue-joker").setScale(2.0, 2.0);
+                    }
+                    card.angle = 180;
+                }
             }
-            
-            let lookUp = this.players[1].hand.lookUp;
-            for(let i = 0; i < lookUp.length; i++) {
-                let lookUpCard = new Card(this);
-                lookUpCard.renderFront(330 + (i * 70), 120, lookUp[i], false);
-                lookUpCard.card.angle = 180;
+    
+            if(i == 1) {
+                let handCount = opponentsCards[i].opponentHandCount;
+                for(let i = 0; i < handCount; i++) {
+                    let card = this.add.image(0, 200 + (i * 70), "red-card-back").setScale(2.0, 2.0);
+                    card.angle = 90;
+                }
+    
+                let lookDownCount = opponentsCards[i].opponentLookDownCount;
+                for(let i = 0; i < lookDownCount; i++) {
+                    let card = this.add.image(100, 200 + (i * 70), "blue-card-back").setScale(2.0, 2.0);
+                    card.angle = 90;
+                }
+                
+                let lookUp = opponentsCards[i].opponentLookUp;
+                for(let i = 0; i < lookUp.length; i++) {
+                    let card;
+                    console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
+                    if(lookUp[i].value != -1) {
+                        let spritesheet = types[lookUp[i].type] + "-sheet";
+                        card = this.add.image(120, 200 + (i * 70), spritesheet, lookUp[i].value).setScale(2.0, 2.0);
+                    }
+                    else {
+                        card = this.add.image(120, 200 + (i * 70), "blue-joker").setScale(2.0, 2.0);
+                    }
+                    card.angle = 90;
+                }
+            }
+    
+            if(i == 2) {
+                let handCount = opponentsCards[i].opponentHandCount;
+                for(let i = 0; i < handCount; i++) {
+                    let card = this.add.image(800, 200 + (i * 70), "red-card-back").setScale(2.0, 2.0);
+                    card.angle = -90;
+                }
+    
+                let lookDownCount = opponentsCards[i].opponentLookDownCount;
+                for(let i = 0; i < lookDownCount; i++) {
+                    let card = this.add.image(700, 200 + (i * 70), "blue-card-back").setScale(2.0, 2.0);
+                    card.angle = -90;
+                }
+                
+                let lookUp = opponentsCards[i].opponentLookUp;
+                for(let i = 0; i < lookUp.length; i++) {
+                    let card;
+                    console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
+                    if(lookUp[i].value != -1) {
+                        let spritesheet = types[lookUp[i].type] + "-sheet";
+                        card = this.add.image(680, 200 + (i * 70), spritesheet, lookUp[i].value).setScale(2.0, 2.0);
+                    }
+                    else {
+                        card = this.add.image(680, 200 + (i * 70), "blue-joker").setScale(2.0, 2.0);
+                    }
+                    card.angle = -90;
+                }
             }
         }
+    }
 
-        {
-            let hand = this.players[2].hand.hand;
-            for(let i = 0; i < hand.length; i++) {
-                let handCard = new Card(this);
-                handCard.renderBack(0, 200 + (i * 70), "red-card-back");
-                handCard.card.angle = 90;
-            }
+    makeDraggeable(card) {
+        this.input.setDraggable(card);
+        card.on("pointerover", () => {
+            card.y -= 50;
+            card.setScale(3.0, 3.0);
+            this.children.bringToTop(card);
+        });
+        
+        card.on("pointerout", () => {
+            card.y += 50;
+            card.setScale(2.0, 2.0);
+        });
+    }
 
-            let lookDown = this.players[2].hand.lookDown;
-            for(let i = 0; i < lookDown.length; i++) {
-                let lookDownCard = new Card(this);
-                lookDownCard.renderBack(100, 200 + (i * 70), "blue-card-back");
-                lookDownCard.card.angle = 90;
-            }
-            
-            let lookUp = this.players[2].hand.lookUp;
-            for(let i = 0; i < lookUp.length; i++) {
-                let lookUpCard = new Card(this);
-                lookUpCard.renderFront(120, 200 + (i * 70), lookUp[i], false);
-                lookUpCard.card.angle = 90;
-            }
+    drawBoard() {
+        let pile = this.game.state.pile;
+        let top = this.game.state.top;
 
+        this.renderPlayerHand();
+        this.renderOpponentsHands();
+
+        this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0);
+
+        let topPile = pile[pile.length - 1];
+        if(topPile.value != -1) {
+            let spritesheet = types[topPile.type] + "-sheet";
+            this.add.image(400, 300, spritesheet, topPile.value).setScale(2.0, 2.0);
         }
-
-        {
-            let hand = this.players[3].hand.hand;
-            for(let i = 0; i < hand.length; i++) {
-                let handCard = new Card(this);
-                handCard.renderBack(800, 200 + (i * 70), "red-card-back");
-                handCard.card.angle = -90;
-            }
-
-            let lookDown = this.players[3].hand.lookDown;
-            for(let i = 0; i < lookDown.length; i++) {
-                let lookDownCard = new Card(this);
-                lookDownCard.renderBack(700, 200 + (i * 70), "blue-card-back");
-                lookDownCard.card.angle = -90;
-            }
-            
-            let lookUp = this.players[3].hand.lookUp;
-            for(let i = 0; i < lookUp.length; i++) {
-                let lookUpCard = new Card(this);
-                lookUpCard.renderFront(680, 200 + (i * 70), lookUp[i], false);
-                lookUpCard.card.angle = -90;
-            }
+        else {
+            this.add.image(400, 300, + (i * 70), "blue-joker").setScale(2.0, 2.0);
         }
     }
 
@@ -191,7 +253,9 @@ export default class Game extends Phaser.Scene {
             this.playersNames.forEach(name => {
                 name.visible = false;
             });
-            console.log(data);
+            this.game.state = data.clientState;
+            console.log(data.clientState);
+            self.drawBoard();
         });
 
 
