@@ -1,0 +1,16 @@
+<h1>Care Caca Online</h1>
+
+{% if not user.is_authenticated %}
+    <a href="{% url 'home' %}">Iniciar Sesión</a>
+    <br>
+    <a href="{% url 'signup' %}">Registrarse</a>
+{% else %}
+    <a href="{% url 'logout' %}">Cerrar sesión</a>
+{% endif %}
+
+{% if user.is_authenticated %}
+    <h2>Bienvenido {{ user.username }}</h2>
+    <a href="{% url 'games' %}">Buscar Partida</a>
+    <br>
+    <a href="{% url 'game' %}">Crear Partida</a>
+{% endif %}

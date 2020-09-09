@@ -1,0 +1,14 @@
+<h2>Pardidas</h2>
+
+{% if sessions %}
+    <ul>
+        {% for sesion in sessions %}
+            <li><a href="">partida</a></li>
+        {% endfor %}
+    </ul>
+
+{% else %}
+    <p>No hay partidas actualmente</p>
+{% endif %}
+
+<a href="{% url 'game' %}">Crear partida</a>
