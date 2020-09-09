@@ -1,7 +1,7 @@
 django
 djangorestframework
 gunicorn
-mysqlclient==1.4.1
+mysqlclient
 coverage
 django-heroku
 django-cors-headers
