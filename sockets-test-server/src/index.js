@@ -16,7 +16,8 @@ io.on('connection', (socket) => {
         console.log("createGame");
         let gameId = guid();
         let clientId = data.clientId;
-        let clients = [clientId];
+        let clients = {};
+        clients[clientId] = 1;
         gamesHash[gameId] = {
             gameId: gameId,
             hostId: clientId,
@@ -28,7 +29,7 @@ io.on('connection', (socket) => {
         };
 
         console.log("new game: " + gameId);
-        let client = clientsHash[clientId]
+        let client = clientsHash[clientId];
         client.emit("createGame", payLoad);
     });
 
@@ -39,16 +40,16 @@ io.on('connection', (socket) => {
         if(gamesHash.hasOwnProperty(gameId)) {
             let game = gamesHash[gameId];
             if(clientsHash.hasOwnProperty(clientId)) {
-                game.clients.push(clientId);
+                let turn = Object.keys(game.clients).length + 1;
+                game.clients[clientId] = turn;
                 console.log("Client " + clientId + "joined to game " + gameId);
                 let payLoad = {
                     gameId: gameId,
-                    game: gamesHash[gameId]
+                    game: game
                 };
-                game.clients.forEach(clientId => {
-                    let gameClient = clientsHash[clientId];
-                    gameClient.emit("joinGame", payLoad);
-                });
+                for(const clientId in game.clients) {
+                    clientsHash[clientId].emit("joinGame", payLoad);
+                }
             }
         }
     });
@@ -61,50 +62,69 @@ io.on('connection', (socket) => {
             let clients = game.clients;
 
             let playersCards = {};
-            clients.forEach(clientId => { 
+            for(const clientId in clients) { 
                 playersCards[clientId] = {
+                        turn: clients[clientId],
                         hand: [],
                         lookDown: [],
                         lookUp: []
                 };
                 for(let j = 0; j < 3; j++) {
                     let cardIndex = Math.floor(Math.random() * desk.desk.length);
-                    playersCards[clientId].hand.push(desk.desk.splice(cardIndex, 1)[0]);
+                    playersCards[clientId].hand.push({
+                        index: cardIndex,
+                        card: desk.desk.splice(cardIndex, 1)[0]
+                    });
                 }
     
                 for(let j = 0; j < 3; j++) {
                     let cardIndex = Math.floor(Math.random() * desk.desk.length);
-                    playersCards[clientId].lookDown.push(desk.desk.splice(cardIndex, 1)[0]);
+                    playersCards[clientId].lookDown.push({
+                        index: cardIndex,
+                        card: desk.desk.splice(cardIndex, 1)[0]
+                    });
                 }
     
                 for(let j = 0; j < 3; j++) {
                     let cardIndex = Math.floor(Math.random() * desk.desk.length);
-                    playersCards[clientId].lookUp.push(desk.desk.splice(cardIndex, 1)[0]);
+                    playersCards[clientId].lookUp.push({
+                        index: cardIndex,
+                        card: desk.desk.splice(cardIndex, 1)[0]
+                    });
                 }
-            });
+            }
             
             let gameState = {
                 desk: desk.desk,
                 pile: [],
-                discarted: [],
+                discarded: [],
                 playersCards: playersCards
             };
 
-            let cardIndex = Math.floor(Math.random() * gameState.desk.length);
-            gameState.top = gameState.desk.splice(cardIndex, 1)[0];
-            gameState.pile.push(gameState.desk.splice(cardIndex, 1)[0]);
+            let pileIndex = Math.floor(Math.random() * gameState.desk.length);
+            gameState.pile.push({ index: pileIndex, card: gameState.desk.splice(pileIndex, 1)[0]    });
+            let topIndex = Math.floor(Math.random() * gameState.desk.length);
+            gameState.top = { index: topIndex, card: gameState.desk.splice(topIndex, 1)[0] };
+            
 
             game.state = gameState;
     
-            clients.forEach(clientId => {
+            for(const clientId in clients) {
                 let allHandCards = game.state.playersCards;
                 let clientCards = allHandCards[clientId];
                 let opponentsCards = []
                 for (const id in allHandCards) {
                     if(id != clientId) {
+                        let hand = allHandCards[id].hand.map(card => {
+                            return card.index;
+                        });
+                        let lookDown = allHandCards[id].lookDown.map(card => {
+                            return card.index;
+                        });
                         opponentsCards.push({
-                            opponentHandCount: allHandCards[id].hand.length,
-                            opponentLookDownCount: allHandCards[id].lookDown.length,
+                            turn: allHandCards[id].turn,
+                            opponentHandIndexes: hand,
+                            opponentLookDownIndexes: lookDown,
                             opponentLookUp: allHandCards[id].lookUp
                         });
                     }
@@ -113,15 +133,14 @@ io.on('connection', (socket) => {
                 let clientState = {
                     clientCards: clientCards,
                     opponentsCards: opponentsCards,
-                    pile: game.state.pile,
-                    top: game.state.top
+                    pile: game.state.pile
                 }
                 let payload = {
                     gameId: game.gameId,
                     clientState: clientState
                 }
                 clientsHash[clientId].emit("startGame", payload);
-            });
+            }
         }
     });
 
