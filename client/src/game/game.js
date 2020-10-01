@@ -32,8 +32,6 @@ export default class Game extends Phaser.Scene {
     }
 
     socketConnections() {
-        let self = this;
-        
         this.socket = io.connect('http://localhost:3000');
 
         this.socket.on('connect', () => {
@@ -41,19 +39,19 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('newClient', (data) => {
-            self.clientId = data.clientId;
-            console.log(self.clientId);
+            this.clientId = data.clientId;
+            console.log(this.clientId);
         });
 
         this.socket.on('createGame', (data) => {
-            self.gameState = data.game;
-            console.log(self.gameState);
-            self.drawLobby();
+            this.game = data.game;
+            console.log(this.game);
+            this.drawLobby();
         });
 
         this.socket.on('joinGame', (data) => {
-            self.gameState = data.game;
-            console.log(self.gameState);
+            this.game = data.game;
+            console.log(this.game);
             if(this.dealText) {
                 this.dealText.destroy();
             }
@@ -62,7 +60,7 @@ export default class Game extends Phaser.Scene {
                     name.destroy();
                 });
             }
-            self.drawLobby();
+            this.drawLobby();
         });
 
         this.socket.on('startGame', (data) => {
@@ -72,27 +70,29 @@ export default class Game extends Phaser.Scene {
             this.playersNames.forEach(name => {
                 name.destroy();
             });
-            this.gameState.state = data.clientState;
             this.createGame(data.clientState);
-            //self.drawBoard();
         });
-    }
+
+        this.socket.on('dropCard', (data) => {
+            console.log('dropCard')
+            console.log(data);
+        });
+    } 
 
     create() {
-        let self = this;
-
         // Client state
         this.player = null;
         this.game = null;
         this.opponents = [];
-    
+        
+        //Socket connections
         this.socketConnections();
 
-        // Game elements
+        // UI elements
         this.createGameButton = this.add.text(100, 100, ['Crear partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
         this.createGameButton.on('pointerdown', () => {
             let payLoad = {
-                clientId: self.clientId
+                clientId: this.clientId
             }
             console.log(payLoad);
             this.socket.emit('createGame', payLoad);
@@ -114,38 +114,52 @@ export default class Game extends Phaser.Scene {
                 console.log("text: ", this.inputText.text);
                 let gameId = this.inputText.text;
                 let payLoad = {
-                    clientId: self.clientId,
+                    clientId: this.clientId,
                     gameId: gameId
                 }
                 this.socket.emit('joinGame', payLoad);
             }
         });
-
+        
         // Cards interactions
+        this.pileDropZone = this.add.zone(400, 300, 70, 100).setRectangleDropZone(100, 130);
+        // let dropZoneOutline = this.add.graphics();
+        // dropZoneOutline.lineStyle(4, 0xff69b4);
+        // dropZoneOutline.strokeRect(this.pileDropZone.x - this.pileDropZone.input.hitArea.width / 2, this.pileDropZone.y - this.pileDropZone.input.hitArea.height / 2, this.pileDropZone.input.hitArea.width, this.pileDropZone.input.hitArea.height)
+        
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
             gameObject.y = dragY;
         });
 
-        this.input.on('dragstart', function (pointer, gameObject) {
+        this.input.on('dragstart', (pointer, gameObject) => {
             gameObject.setTint(0xff69b4);
-            self.children.bringToTop(gameObject);
-        })
+            this.children.bringToTop(gameObject);
+        });
 
-        this.input.on('dragend', function (pointer, gameObject) {
+        this.input.on('dragend', (pointer, gameObject) => {
             gameObject.setTint();
             gameObject.x = gameObject.input.dragStartX;
             gameObject.y = gameObject.input.dragStartY;
-        })
+        });
+
+        this.input.on('drop', (pointer, gameObject, dropZone) => {
+            let cardIndex = gameObject.getData("index");
+            console.log(cardIndex);
+            console.log(this.game.gameId);
+            let payLoad = {
+                gameId: this.game.gameId,
+                clientId: this.clientId,
+                cardIndex: cardIndex
+            }
+            this.socket.emit('dropCard', payLoad);
+        });
     }
 
     update() {
     }
 
     sortOpponents(playerTurn, opponents) {
-        console.log(playerTurn);
-        console.log(opponents);
-
         let temp = [...opponents];    
         temp.sort((a, b) => { return a.turn - b.turn });
         let sortedOpponents = [];
@@ -168,68 +182,93 @@ export default class Game extends Phaser.Scene {
                 sortedOpponents = sortedOpponents.concat(minors);
             }
         }
-
         return sortedOpponents;
     }
 
     createGame(gameState) {
-        let pile = gameState.pile.map(card => {
-            return new Card(true, card.index, { type: card.card.type, value: card.card.value });
-        });
-
-        this.gameState = {
-            pile: pile,
-            discarded: []
-        };
-
-        console.log(this.gameState)
-
-        //Create player hand
+        // Create player state
         let playerTurn = gameState.clientCards.turn;
         let playerCardsData = gameState.clientCards;
-        let playerCards = {}
-        playerCards.hand = playerCardsData.hand.map(cardData => {
-            return new Card(true, cardData.index, { type: cardData.card.type, value: cardData.card.value });
-        });
-        playerCards.lookUp = playerCardsData.lookUp.map(cardData => {
-            return new Card(true, cardData.index, { type: cardData.card.type, value: cardData.card.value });
-        });
-        playerCards.lookDown = playerCardsData.lookDown.map(cardData => {
-            return new Card(false, cardData.index);
+        let playerCards = {
+            hand: {},
+            lookUp: {},
+            lookDown: {}
+        };
+
+        playerCardsData.hand.forEach(cardData => {
+            let card = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });
+            playerCards.hand[cardData.index] = card;
         });
 
-        this.player = new Player(this, playerCards, playerTurn);
-        console.log(this.player);
+        playerCardsData.lookUp.forEach(cardData => {
+            let card = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });
+            playerCards.lookUp[cardData.index] = card;
+        });
 
-        //Create opponents hands
+        playerCardsData.lookDown.forEach(cardData => {
+            let card = new Card(cardData.index, false);
+            playerCards.lookDown[cardData.index] = card;
+        });
+
+        this.player = new Player(playerTurn, playerCards);
+
+        // Create opponents states
         let opponentsCards = gameState.opponentsCards;
         opponentsCards.forEach(opponent => {
             let turn = opponent.turn;
-            let hand = opponent.opponentHandIndexes.map(index => {
-                return new Card(false, index);
-            });
-            let lookDown = opponent.opponentLookDownIndexes.map(index => {
-                return new Card(false, index);
-            });
-            let lookUp = opponent.opponentLookUp.map(cardData => {
-                return new Card(true, cardData.index, { type: cardData.card.type, value: cardData.card.value });
-            });
-
             let opponentCards = {
-                handIndexes: hand,
-                lookDownIndexes: lookDown,
-                lookUp: lookUp
-            }
+                hand: {},
+                lookUp: {},
+                lookDown: {}
+            };
 
-            this.opponents.push(new Opponent(this, opponentCards, turn));
+            opponent.opponentHandIndexes.forEach(index => {
+                opponentCards.hand[index] = new Card(index, false);
+            });
+
+            opponent.opponentLookDownIndexes.forEach(index => {
+                opponentCards.lookDown[index] = new Card(index, false);
+            });
+
+            opponent.opponentLookUp.forEach(cardData => {
+                opponentCards.lookUp[cardData.index] = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });;
+            });
+
+            this.opponents.push(new Opponent(turn, opponentCards));
         });
 
-        this.opponents = this.sortOpponents(this.player.turn, this.opponents)
+        this.opponents = this.sortOpponents(this.player.turn, this.opponents);
+
+        console.log(gameState);
+        let pile = [];
+        gameState.pile.forEach(cardData => {
+            let card = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });
+            pile.push({
+                index: card.index,
+                cardObject: card
+            });
+        });
+        
+        this.game.state = {
+            pile: pile,
+            discarded: []
+        };
+        
+        console.log(this.player);
         console.log(this.opponents);
+        console.log(this.game.state);
 
         this.renderBoard();
     }
 
+    dropCard(gameState) {
+        let pile = gameState.pile.map(card => {
+            return new Card(self, true, card.index, { type: card.card.type, value: card.card.value });
+        });
+
+        this.game.state.pile = pile;
+        console.log(this.game.state.pile);
+    }
     
     drawLobby() {
         if(this.createGameButton) this.createGameButton.destroy();
@@ -237,20 +276,20 @@ export default class Game extends Phaser.Scene {
         if(this.inputText) this.inputText.destroy();
 
         console.log("Client id: " + this.clientId);
-        console.log("Host id: " + this.gameState.hostId);
+        console.log("Host id: " + this.game.hostId);
 
-        if(this.clientId == this.gameState.hostId) {
+        if(this.clientId == this.game.hostId) {
             this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
             this.dealText.on('pointerdown', () => {
                 let payLoad = {
-                    gameId: this.gameState.gameId 
+                    gameId: this.game.gameId 
                 }
                 this.socket.emit('startGame', payLoad);
             });
         }
 
         this.playersNames = [];
-        let players = this.gameState.clients;
+        let players = this.game.clients;
         let i = 0;
         for(const id in players) {
             let playerName = "Player " + id + " Turn: " + players[id];
@@ -259,185 +298,28 @@ export default class Game extends Phaser.Scene {
         }
     }
 
-    renderPlayerHand() {
-        let playerHand = this.player.hand
-        for(let i = 0; i < playerHand.length; i++) {
-            let card;
-            if(playerHand[i].value != -1) {
-                let spritesheet = types[playerHand[i].type] + "-sheet";
-                card = this.add.image(330 + (i * 70), 600, spritesheet, playerHand[i].value).setScale(2.0, 2.0).setInteractive();
-                card.setDataEnabled();
-                card.data.set("index", playerHand[i].index);
-            }
-            else {
-                card = this.add.image(330 + (i * 70), 600, "blue-joker").setScale(2.0, 2.0).setInteractive();
-                card.setDataEnabled();
-                card.data.set("index", playerHand[i].index);
-            }
-            this.makeDraggeable(card);
-        }
-
-        let lookDown = this.player.lookDown;
-        for(let i = 0; i < lookDown.length; i++) {
-            let card = this.add.image(330 + (i * 70), 500, "blue-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", lookDown[i].index);
-        }
-        
-        let lookUp = this.player.lookUp;
-        for(let i = 0; i < lookUp.length; i++) {
-            let card;
-            console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
-            if(lookUp[i].value != -1) {
-                let spritesheet = types[lookUp[i].type] + "-sheet";
-                card = this.add.image(330 + (i * 70), 480, spritesheet, lookUp[i].value).setScale(2.0, 2.0).setInteractive();
-            }
-            else {
-                card = this.add.image(330 + (i * 70), 480, "blue-joker").setScale(2.0, 2.0).setInteractive();
-            }
-            card.setDataEnabled();
-            card.data.set("index", lookUp[i].index);
-        }
-    }
-
-    renderTopOpponent(opponent) {
-        let hand = opponent.handIndexes;
-        for(let i = 0; i < hand.length; i++) {
-            let card = this.add.image(330 + (i * 70), 0, "red-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", hand[i].index);
-            card.angle = 180;
-        }
-
-        let lookDown = opponent.lookDownIndexes;
-        for(let i = 0; i < lookDown.length; i++) {
-            let card = this.add.image(330 + (i * 70), 100, "blue-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", lookDown[i].index);
-            card.angle = 180;
-        }
-        
-        let lookUp = opponent.lookUp;
-        for(let i = 0; i < lookUp.length; i++) {
-            let card;
-            console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
-            if(lookUp[i].value != -1) {
-                let spritesheet = types[lookUp[i].type] + "-sheet";
-                card = this.add.image(330 + (i * 70), 120, spritesheet, lookUp[i].value).setScale(2.0, 2.0);
-            }
-            else {
-                card = this.add.image(330 + (i * 70), 120, "blue-joker").setScale(2.0, 2.0);
-            }
-            card.setDataEnabled();
-            card.data.set("index", lookUp[i].index);
-            card.angle = 180;
-        }
-    }
-
-    renderRightOpponent(opponent) {
-        let hand = opponent.handIndexes;
-        for(let i = 0; i < hand.length; i++) {
-            let card = this.add.image(0, 200 + (i * 70), "red-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", hand[i].index);
-            card.angle = 90;
-        }
-
-        let lookDown = opponent.lookDownIndexes;
-        for(let i = 0; i < lookDown.length; i++) {
-            let card = this.add.image(100, 200 + (i * 70), "blue-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", lookDown[i].index);
-            card.angle = 90;
-        }
-        
-        let lookUp = opponent.lookUp;
-        for(let i = 0; i < lookUp.length; i++) {
-            let card;
-            console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
-            if(lookUp[i].value != -1) {
-                let spritesheet = types[lookUp[i].type] + "-sheet";
-                card = this.add.image(120, 200 + (i * 70), spritesheet, lookUp[i].value).setScale(2.0, 2.0);
-            }
-            else {
-                card = this.add.image(120, 200 + (i * 70), "blue-joker").setScale(2.0, 2.0);
-            }
-            card.setDataEnabled();
-            card.data.set("index", lookUp[i].index);
-            card.angle = 90;
-        }
-    }
-
-    renderLeftOpponent(opponent) {
-        let hand = opponent.handIndexes;
-        for(let i = 0; i < hand.length; i++) {
-            let card = this.add.image(800, 200 + (i * 70), "red-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", hand[i].index);
-            card.angle = -90;
-        }
-
-        let lookDown = opponent.lookDownIndexes;
-        for(let i = 0; i < lookDown.length; i++) {
-            let card = this.add.image(700, 200 + (i * 70), "blue-card-back").setScale(2.0, 2.0);
-            card.setDataEnabled();
-            card.data.set("index", lookDown[i].index);
-            card.angle = -90;
-        }
-        
-        let lookUp = opponent.lookUp;
-        for(let i = 0; i < lookUp.length; i++) {
-            let card;
-            console.log("Look up: " + types[lookUp[i].type] + " - " + (lookUp[i].value + 1));
-            if(lookUp[i].value != -1) {
-                let spritesheet = types[lookUp[i].type] + "-sheet";
-                card = this.add.image(680, 200 + (i * 70), spritesheet, lookUp[i].value).setScale(2.0, 2.0);
-            }
-            else {
-                card = this.add.image(680, 200 + (i * 70), "blue-joker").setScale(2.0, 2.0);
-            }
-            card.setDataEnabled();
-            card.data.set("index", lookUp[i].index);
-            card.angle = -90;
-        }
-    }
-
-    renderOpponentsHands() {
+    makeOpponetsCardsObjects() {
         let opponents = this.opponents;
 
         if(opponents.length == 1) {
-            this.renderTopOpponent(opponents[0]);
+            opponents[0].makeCardsObjects(this, types, "top");
         }
         else if(opponents.length == 2) {
-            this.renderRightOpponent(opponents[0]);
-            this.renderLeftOpponent(opponents[1]);
+            opponents[0].makeCardsObjects(this, types, "right");
+            opponents[1].makeCardsObjects(this, types, "left");
         }
         else if(opponents.length == 3) {
-            this.renderRightOpponent(opponents[0]);
-            this.renderTopOpponent(opponents[1]);
-            this.renderLeftOpponent(opponents[2]);
+            opponents[0].makeCardsObjects(this, types, "right");
+            opponents[1].makeCardsObjects(this, types, "top");
+            opponents[2].makeCardsObjects(this, types, "left");
         }
-    }
-
-    makeDraggeable(card) {
-        this.input.setDraggable(card);
-        card.on("pointerover", () => {
-            card.y -= 50;
-            card.setScale(3.0, 3.0);
-            this.children.bringToTop(card);
-        });
-        
-        card.on("pointerout", () => {
-            card.y += 50;
-            card.setScale(2.0, 2.0);
-        });
     }
 
     renderBoard() {
-        let pile = this.gameState.pile;
+        let pile = this.game.state.pile;
 
-        this.renderPlayerHand();
-        this.renderOpponentsHands();
+        this.player.makeCardsObjects(this, types);
+        this.makeOpponetsCardsObjects();
 
         this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0);
         let top = this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0).setInteractive();
@@ -450,13 +332,13 @@ export default class Game extends Phaser.Scene {
             top.setScale(2.0, 2.0);
         });
 
-        let topPile = pile[pile.length - 1];
+        let topPile = pile[pile.length - 1].cardObject;
         if(topPile.value != -1) {
-            let spritesheet = types[topPile.type] + "-sheet";
-            this.add.image(400, 300, spritesheet, topPile.value).setScale(2.0, 2.0);
+            let texture = types[topPile.type] + "-sheet";
+            topPile.makeCardObject(this, 400, 300, texture, false, topPile.value);
         }
         else {
-            this.add.image(400, 300, + (i * 70), "blue-joker").setScale(2.0, 2.0);
+            topPile.makeCardObject(this, 400, 300, "blue-joker", false);
         }
     }
 }
