@@ -31,53 +31,6 @@ export default class Game extends Phaser.Scene {
         this.load.image("red-joker", "src/assets/red-joker.png");
     }
 
-    socketConnections() {
-        this.socket = io.connect('http://localhost:3000');
-
-        this.socket.on('connect', () => {
-            console.log("Connected");
-        });
-
-        this.socket.on('newClient', (data) => {
-            this.clientId = data.clientId;
-            console.log(this.clientId);
-        });
-
-        this.socket.on('createGame', (data) => {
-            this.game = data.game;
-            console.log(this.game);
-            this.drawLobby();
-        });
-
-        this.socket.on('joinGame', (data) => {
-            this.game = data.game;
-            console.log(this.game);
-            if(this.dealText) {
-                this.dealText.destroy();
-            }
-            if(this.playersNames) {
-                this.playersNames.forEach(name => {
-                    name.destroy();
-                });
-            }
-            this.drawLobby();
-        });
-
-        this.socket.on('startGame', (data) => {
-            if(this.dealText) {
-                this.dealText.destroy();
-            }
-            this.playersNames.forEach(name => {
-                name.destroy();
-            });
-            this.createGame(data.clientState);
-        });
-
-        this.socket.on('dropCard', (data) => {
-            console.log('dropCard')
-            console.log(data);
-        });
-    } 
 
     create() {
         // Client state
@@ -122,31 +75,32 @@ export default class Game extends Phaser.Scene {
         });
         
         // Cards interactions
-        this.pileDropZone = this.add.zone(400, 300, 70, 100).setRectangleDropZone(100, 130);
-        // let dropZoneOutline = this.add.graphics();
-        // dropZoneOutline.lineStyle(4, 0xff69b4);
-        // dropZoneOutline.strokeRect(this.pileDropZone.x - this.pileDropZone.input.hitArea.width / 2, this.pileDropZone.y - this.pileDropZone.input.hitArea.height / 2, this.pileDropZone.input.hitArea.width, this.pileDropZone.input.hitArea.height)
-        
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             gameObject.x = dragX;
             gameObject.y = dragY;
         });
-
+        
         this.input.on('dragstart', (pointer, gameObject) => {
             gameObject.setTint(0xff69b4);
             this.children.bringToTop(gameObject);
         });
-
-        this.input.on('dragend', (pointer, gameObject) => {
+        
+        this.input.on('dragend', (pointer, gameObject, dropped) => {
             gameObject.setTint();
-            gameObject.x = gameObject.input.dragStartX;
-            gameObject.y = gameObject.input.dragStartY;
+            if(!dropped) {
+                gameObject.x = gameObject.input.dragStartX;
+                gameObject.y = gameObject.input.dragStartY;
+            }
         });
-
+        
+        this.pileDropZone = this.add.zone(400, 300, 100, 130).setRectangleDropZone(100, 130);
         this.input.on('drop', (pointer, gameObject, dropZone) => {
             let cardIndex = gameObject.getData("index");
             console.log(cardIndex);
             console.log(this.game.gameId);
+            gameObject.x = dropZone.x;
+            gameObject.y = dropZone.y - 50;
+            gameObject.disableInteractive();
             let payLoad = {
                 gameId: this.game.gameId,
                 clientId: this.clientId,
@@ -157,32 +111,6 @@ export default class Game extends Phaser.Scene {
     }
 
     update() {
-    }
-
-    sortOpponents(playerTurn, opponents) {
-        let temp = [...opponents];    
-        temp.sort((a, b) => { return a.turn - b.turn });
-        let sortedOpponents = [];
-
-        if(playerTurn == 1 || playerTurn == opponents.length + 1) {
-            sortedOpponents = temp;
-        }
-        else {
-            let minors = [];
-            temp.forEach(opponent => {
-                if(playerTurn > opponent.turn) {
-                    minors.push(opponent);
-                }
-                else {
-                    sortedOpponents.push(opponent);
-                }
-            });
-
-            if(minors.length) {
-                sortedOpponents = sortedOpponents.concat(minors);
-            }
-        }
-        return sortedOpponents;
     }
 
     createGame(gameState) {
@@ -261,13 +189,87 @@ export default class Game extends Phaser.Scene {
         this.renderBoard();
     }
 
-    dropCard(gameState) {
-        let pile = gameState.pile.map(card => {
-            return new Card(self, true, card.index, { type: card.card.type, value: card.card.value });
+    socketConnections() {
+        this.socket = io.connect('http://localhost:3000');
+
+        this.socket.on('connect', () => {
+            console.log("Connected");
         });
 
-        this.game.state.pile = pile;
-        console.log(this.game.state.pile);
+        this.socket.on('newClient', (data) => {
+            this.clientId = data.clientId;
+            console.log(this.clientId);
+        });
+
+        this.socket.on('createGame', (data) => {
+            this.game = data.game;
+            console.log(this.game);
+            this.drawLobby();
+        });
+
+        this.socket.on('joinGame', (data) => {
+            this.game = data.game;
+            console.log(this.game);
+            if(this.dealText) {
+                this.dealText.destroy();
+            }
+            if(this.playersNames) {
+                this.playersNames.forEach(name => {
+                    name.destroy();
+                });
+            }
+            this.drawLobby();
+        });
+
+        this.socket.on('startGame', (data) => {
+            if(this.dealText) {
+                this.dealText.destroy();
+            }
+            this.playersNames.forEach(name => {
+                name.destroy();
+            });
+            this.createGame(data.clientState);
+        });
+
+        this.socket.on('dropCard', (data) => {
+            console.log('dropCard');
+            console.log(data);
+            let playerTurn = this.game.clients[data.clientPlaying];
+            if(playerTurn !== this.player.turn) {
+                this.opponents.forEach(opponent => {
+                    if(opponent.turn == playerTurn) {
+                        opponent.dropCardFromHand(data.droppedCard);
+                    }
+                });
+            }
+            // this.dropCard(data.clientState, data.clientPlaying, data.droppedCard);
+        });
+    } 
+
+    sortOpponents(playerTurn, opponents) {
+        let temp = [...opponents];    
+        temp.sort((a, b) => { return a.turn - b.turn });
+        let sortedOpponents = [];
+
+        if(playerTurn == 1 || playerTurn == opponents.length + 1) {
+            sortedOpponents = temp;
+        }
+        else {
+            let minors = [];
+            temp.forEach(opponent => {
+                if(playerTurn > opponent.turn) {
+                    minors.push(opponent);
+                }
+                else {
+                    sortedOpponents.push(opponent);
+                }
+            });
+
+            if(minors.length) {
+                sortedOpponents = sortedOpponents.concat(minors);
+            }
+        }
+        return sortedOpponents;
     }
     
     drawLobby() {
@@ -298,7 +300,7 @@ export default class Game extends Phaser.Scene {
         }
     }
 
-    makeOpponetsCardsObjects() {
+    makeOpponentsCardsObjects() {
         let opponents = this.opponents;
 
         if(opponents.length == 1) {
@@ -319,18 +321,9 @@ export default class Game extends Phaser.Scene {
         let pile = this.game.state.pile;
 
         this.player.makeCardsObjects(this, types);
-        this.makeOpponetsCardsObjects();
+        this.makeOpponentsCardsObjects();
 
         this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0);
-        let top = this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0).setInteractive();
-        this.input.setDraggable(top);
-        top.on("pointerover", () => {
-            top.setScale(3.0, 3.0);
-            this.children.bringToTop(top);
-        });
-        top.on("pointerout", () => {
-            top.setScale(2.0, 2.0);
-        });
 
         let topPile = pile[pile.length - 1].cardObject;
         if(topPile.value != -1) {

@@ -53,7 +53,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('startGame', (data) => {
-        let desk = JSON.parse(JSON.stringify(deskData));
         let gameId = data.gameId;
         if(gamesHash.hasOwnProperty(gameId)) {
             let game = gamesHash[gameId];
@@ -77,14 +76,14 @@ io.on('connection', (socket) => {
 
     socket.on('dropCard', (data) => {
         console.log(data);
-        let clientId = data.clientId;
+        let clientPlaying = data.clientId;
         let gameId = data.gameId;
         let cardIndex = data.cardIndex;
         let game = gamesHash[gameId];
-        let client = clientsHash[clientId];
-        if(game && client && game.clients.hasOwnProperty(clientId)) {
+        let client = clientsHash[clientPlaying];
+        if(game && client && game.clients.hasOwnProperty(clientPlaying)) {
             let gameState = game.state;
-            let clientCards = gameState.playersCards[clientId]
+            let clientCards = gameState.playersCards[clientPlaying]
             let playedCard;
             clientCards.hand = clientCards.hand.filter(card => { 
                 if(card.index !== cardIndex) {
@@ -106,7 +105,7 @@ io.on('connection', (socket) => {
 
                 let payload = {
                     gameId: game.gameId,
-                    clientId: clientId,
+                    clientPlaying: clientPlaying,
                     droppedCard: cardIndex,
                     clientState: clientState
                 }

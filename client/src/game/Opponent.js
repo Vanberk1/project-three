@@ -97,12 +97,15 @@ export default class Opponent {
         }
     }
 
-    dropCardFromHand() {
-        --this.handCount;
-    }
-
-    dropCardFromLookDown() {
-        --this.lookDownCount;
+    dropCardFromHand(index) {
+        let hand = this.hand;
+        for(const cardIndex in hand) {
+            if(index == cardIndex) {
+                console.log(hand[cardIndex]);
+                hand[cardIndex].cardObject.destroy();
+                delete hand[cardIndex];
+            }
+        }
     }
 
     dropCardFromLookUp(index) {
