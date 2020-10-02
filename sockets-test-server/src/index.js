@@ -85,6 +85,7 @@ io.on('connection', (socket) => {
             let gameState = game.state;
             let clientCards = gameState.playersCards[clientPlaying]
             let playedCard;
+            // TODO: Add from what cards group was dropped
             clientCards.hand = clientCards.hand.filter(card => { 
                 if(card.index !== cardIndex) {
                     return true;

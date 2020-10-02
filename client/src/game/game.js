@@ -21,16 +21,15 @@ export default class Game extends Phaser.Scene {
     }
 
     preload() {
-        this.load.spritesheet("heart-sheet", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("club-sheet", "src/assets/club-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("diamond-sheet", "src/assets/diamond-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("spade-sheet", "src/assets/spade-sheet.png", { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("heart", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("club", "src/assets/club-sheet.png", { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("diamond", "src/assets/diamond-sheet.png", { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("spade", "src/assets/spade-sheet.png", { frameWidth: 35, frameHeight: 47 });
         this.load.image("blue-card-back", "src/assets/blue-card-back.png");
         this.load.image("red-card-back", "src/assets/red-card-back.png");
         this.load.image("blue-joker", "src/assets/blue-joker.png");
         this.load.image("red-joker", "src/assets/red-joker.png");
     }
-
 
     create() {
         // Client state
@@ -105,6 +104,7 @@ export default class Game extends Phaser.Scene {
                 gameId: this.game.gameId,
                 clientId: this.clientId,
                 cardIndex: cardIndex
+                // TODO: Add from what cards group was dropped
             }
             this.socket.emit('dropCard', payLoad);
         });
@@ -168,19 +168,17 @@ export default class Game extends Phaser.Scene {
         this.opponents = this.sortOpponents(this.player.turn, this.opponents);
 
         console.log(gameState);
-        let pile = [];
-        gameState.pile.forEach(cardData => {
-            let card = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });
-            pile.push({
-                index: card.index,
-                cardObject: card
-            });
-        });
-        
+
         this.game.state = {
-            pile: pile,
+            pile: {
+                pileData: [],
+                // topCard: Card
+            },
             discarded: []
         };
+
+        let cardData = gameState.pile[gameState.pile.length - 1];  
+        this.addCardToPile(cardData);
         
         console.log(this.player);
         console.log(this.opponents);
@@ -232,19 +230,52 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('dropCard', (data) => {
-            console.log('dropCard');
             console.log(data);
-            let playerTurn = this.game.clients[data.clientPlaying];
-            if(playerTurn !== this.player.turn) {
-                this.opponents.forEach(opponent => {
-                    if(opponent.turn == playerTurn) {
-                        opponent.dropCardFromHand(data.droppedCard);
-                    }
-                });
-            }
-            // this.dropCard(data.clientState, data.clientPlaying, data.droppedCard);
+            let pile = data.clientState.pile
+            let cardDroppepd = pile[pile.length - 1];
+            this.dropCard(data.clientPlaying, data.droppedCard, cardDroppepd)
         });
     } 
+
+    dropCard(clientId, droppedCardIndex, cardData) {
+        let playerTurn = this.game.clients[clientId];
+
+        if(playerTurn !== this.player.turn) {
+            this.opponents.forEach(opponent => {
+                if(opponent.turn == playerTurn) {
+                    // TODO: Add from what cards group was dropped
+                    opponent.dropCard(droppedCardIndex, "hand");
+                    this.addCardToPile(cardData);
+                }
+            });
+        }
+    }
+
+    addCardToPile(cardData) {
+        let newCardData = {
+            index: cardData.index,
+            card: {
+                type: cardData.card.type,
+                value: cardData.card.value
+            }
+        };
+
+        this.game.state.pile.pileData.push(newCardData);
+
+        let newCard = new Card(cardData.index, true, { type: cardData.card.type, value: cardData.card.value });
+        if(newCard.value != -1) {
+            let texture = types[newCard.type];
+            newCard.makeCardObject(this, 400, 300, texture, false, newCard.value);
+        }
+        else {
+            newCard.makeCardObject(this, 400, 300, "blue-joker", false);
+        }
+        console.log(this.game);
+        if(this.game.state.pile.topCard) {
+            delete this.game.state.pile.topCard;
+        }
+        this.game.state.pile.topCard = newCard;
+    }
 
     sortOpponents(playerTurn, opponents) {
         let temp = [...opponents];    
@@ -318,20 +349,8 @@ export default class Game extends Phaser.Scene {
     }
 
     renderBoard() {
-        let pile = this.game.state.pile;
-
         this.player.makeCardsObjects(this, types);
         this.makeOpponentsCardsObjects();
-
-        this.add.image(500, 300, "red-card-back").setScale(2.0, 2.0);
-
-        let topPile = pile[pile.length - 1].cardObject;
-        if(topPile.value != -1) {
-            let texture = types[topPile.type] + "-sheet";
-            topPile.makeCardObject(this, 400, 300, texture, false, topPile.value);
-        }
-        else {
-            topPile.makeCardObject(this, 400, 300, "blue-joker", false);
-        }
+        this.deskCard = this.add.image(500, 300, "red-card-back").setScale(2.0);
     }
 }

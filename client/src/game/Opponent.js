@@ -86,7 +86,7 @@ export default class Opponent {
                     break;
             }
             if(card.value >= 0) {
-                let texture = types[card.type] + "-sheet";
+                let texture = types[card.type];
                 card.makeCardObject(scene, x, y, texture, false, lookUp[cardIndex].value);
             }
             else {
@@ -97,27 +97,25 @@ export default class Opponent {
         }
     }
 
-    dropCardFromHand(index) {
-        let hand = this.hand;
-        for(const cardIndex in hand) {
+    dropCard(index, from) {
+        let cards;
+        if(from === "hand") {
+            cards = this.hand;
+        }
+        else if(from === "lookUp") {
+            cards = this.lookUp;
+        }
+        else if(from === "lookDown") {
+            cards = this.lookDown;
+        }
+
+        for(const cardIndex in cards) {
             if(index == cardIndex) {
-                console.log(hand[cardIndex]);
-                hand[cardIndex].cardObject.destroy();
-                delete hand[cardIndex];
+                console.log(cards[cardIndex]);
+                cards[cardIndex].cardObject.destroy();
+                delete cards[cardIndex];
             }
         }
-    }
-
-    dropCardFromLookUp(index) {
-        let lookUp = this.lookUp;
-        lookUp.forEach(card => {
-            if(index == card.index) {
-                let card = lookUp.slide(lookUp.indexOf(card), 1);
-                return card;
-            }
-        });
-
-        return null;
     }
 
     pickCard() {

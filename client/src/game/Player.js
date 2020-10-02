@@ -16,7 +16,7 @@ export default class Player {
         for(const cardIndex in hand) {
             let card = hand[cardIndex]; 
             if(card.value >= 0) {
-                let texture = types[card.type] + "-sheet";
+                let texture = types[card.type];
                 card.makeCardObject(scene, 330 + (i * 70), 600, texture, true, hand[cardIndex].value);
             }
             else {
@@ -36,7 +36,7 @@ export default class Player {
         for(const cardIndex in lookUp) {
             let card = lookUp[cardIndex]; 
             if(card.value >= 0) {
-                let texture = types[card.type] + "-sheet";
+                let texture = types[card.type];
                 card.makeCardObject(scene, 330 + (i * 70), 480, texture, false, lookUp[cardIndex].value);
             }
             else {
