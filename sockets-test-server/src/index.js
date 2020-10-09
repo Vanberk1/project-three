@@ -2,6 +2,7 @@ const app = require('express')();
 const server = app.listen(3000);
 const io = require('socket.io').listen(server);
 
+const { json } = require('express');
 const deskData = require('./deskData');
 
 const clientsHash = {};
@@ -95,6 +96,7 @@ io.on('connection', (socket) => {
                     return false;
                 }
             });
+
             console.log(game.state.playersCards);
             console.log(playedCard);
 
@@ -103,7 +105,6 @@ io.on('connection', (socket) => {
             let clients = game.clients;
             for(const clientId in clients) {
                 let clientState = makeClientState(game.state, clientId);
-
                 let payload = {
                     gameId: game.gameId,
                     clientPlaying: clientPlaying,
@@ -111,6 +112,26 @@ io.on('connection', (socket) => {
                     clientState: clientState
                 }
                 clientsHash[clientId].emit("dropCard", payload);
+            }
+
+            if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
+                let topCard = JSON.parse(JSON.stringify(game.state.top));
+                console.log("Before: ", game.state.top);
+                
+                let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
+                gameState.top = { index: guid(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
+                
+                console.log("After: ", game.state.top);
+
+                let payLoad = {
+                    gameId: game.gameId,
+                    clientId: clientPlaying,
+                    pickUpCard: topCard
+                };
+                
+                for(const clientId in clients) {
+                    clientsHash[clientId].emit("pickUpCard", payLoad);
+                }
             }
         }
     });

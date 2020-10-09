@@ -5,8 +5,8 @@ import Game from "./game/game";
 const config = {
   type: Phaser.AUTO,
   parent: "phaser-example",
-  width: 800,
-  height: 600,
+  width: 1200,
+  height: 800,
   scene: [
     Game
   ],
