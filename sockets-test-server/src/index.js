@@ -68,7 +68,7 @@ io.on('connection', (socket) => {
 
                 let payload = {
                     gameId: game.gameId,
-                    clientState: clientState
+                    clientState: clientState,
                 }
                 clientsHash[clientId].emit("startGame", payload);
             }
@@ -126,7 +126,8 @@ io.on('connection', (socket) => {
                 let payLoad = {
                     gameId: game.gameId,
                     clientId: clientPlaying,
-                    pickUpCard: topCard
+                    pickUpCard: topCard,
+                    deskCount: gameState.desk.length
                 };
                 
                 for(const clientId in clients) {
@@ -216,7 +217,8 @@ let makeClientState = (gameState, clientId) => {
     let clientState = {
         clientCards: clientCards,
         opponentsCards: opponentsCards,
-        pile: gameState.pile
+        pile: gameState.pile,
+        deskCount: gameState.desk.length
     }
 
     return clientState

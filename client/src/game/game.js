@@ -73,6 +73,11 @@ export default class Game extends Phaser.Scene {
         this.socket.on('pickUpCard', (data) => {
             console.log(data);
             this.addCardToHand(data.clientId, data.pickUpCard);
+            let deskCountText = "x" + data.deskCount;
+            this.deskCount.text = deskCountText;
+            if(data.deskCount === 0) {
+                this.deskCard.visible = false;
+            }
         }); 
     }
 
@@ -245,7 +250,7 @@ export default class Game extends Phaser.Scene {
         console.log(this.opponents);
         console.log(this.game.state);
 
-        this.renderBoard();
+        this.renderBoard(gameState.deskCount);
     } 
 
     dropCard(clientId, droppedCardIndex, cardData) {
@@ -379,9 +384,11 @@ export default class Game extends Phaser.Scene {
         }
     }
 
-    renderBoard() {
+    renderBoard(deskCount) {
         this.makePlayerCardsObjects();
         this.makeOpponentsCardsObjects();
         this.deskCard = this.add.image(this.canvas.width / 2 + 100,  this.canvas.height / 2, "red-card-back").setScale(2.0);
+        let deskCountText = "x" + deskCount;
+        this.deskCount = this.add.text(this.canvas.width / 2 + 150, this.canvas.height / 2 + 33, [deskCountText]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
     }
 }
