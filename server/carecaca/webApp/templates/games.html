@@ -1,24 +1,31 @@
+{% load static %}
 <head>
+    <title>CareCaca</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/games.css' %}">
+    <link rel="shortcut icon" href="../static/Img/Icon.ico" type="image/x-icon"/>
     <title>Registrate</title>
-    <style>
-        body {background-color: teal;}
-        h1 {color: rgb(0, 0, 0);}
-        h2 {color: black; background-color: lightblue;border: 2px solid blue;}
-        
-    </style>
-
-
-<h2>Partidas</h2>
-
-{% if sessions %}
-    <ul>
-        {% for sesion in sessions %}
-            <li><a href="">partida</a></li>
-        {% endfor %}
-    </ul>
-
-{% else %}
-    <p>No hay partidas actualmente</p>
-{% endif %}
-
-<a href="{% url 'game' %}">Crear partida</a>
+    
+</head>
+    
+    <title>Registrate</title>
+<body>
+    <h1>Partidas</h1>
+    <div class="card">
+        {% if sessions %}
+            <ul>
+                {% for sesion in sessions %}
+                    <li><a href="">partida</a></li>
+                {% endfor %}
+            </ul>
+    
+        {% else %}
+            <p>No hay partidas actualmente</p>
+        {% endif %}
+        <h5 class="card-header">Partidas</h5>
+        <div class="card-body">
+          <h5 class="card-title">No se encuentran partidas actualmente</h5>
+          <a href="{% url 'game' %}" class="btn btn-primary">Crear partida</a>
+        </div>
+      </div>
+</body>

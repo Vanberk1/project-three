@@ -1,14 +1,22 @@
+{% load static %}
 <head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <link rel="shortcut icon" href="../static/Img/Icon.ico" type="image/x-icon"/>
     <title>Iniciar Sesión</title>
-    <style>
-        body {background-color: teal;}
-        h1 {color: black; background-color: lightblue;border: 2px solid blue; font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;}
-        div {border: 2px solid blue; width: 300px; height:120px ;font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;background-color: lightblue;}
-    </style>
-
+</head>
+<body>
 <center><h1>Iniciar Sesión</h1></center>
-<form method="post">
-    <center><div>{% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Enviar</button><center></div>
-</form>
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        <label for="username"><img class="svg_username" src ="../../static/Img/usuario.svg"></label>
+        <input id="username" type="text" name="username" value="{{ username }}">
+        <br>
+        <label for="password"><img class="svg_password" src ="../../static/Img/candado.svg"></label>
+        <input id="password" type="password" name="password" value="{{ password }}">
+        <br>
+        <button type="submit">Enviar</button></div>     
+    </form>    
+  </div>
+</body>

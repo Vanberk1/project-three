@@ -7,5 +7,5 @@ urlpatterns = [
     path('game/', views.SearchGameView.as_view(), name='game'),
     path('games/', views.SearchGameView.as_view(), name='games'),
     path('accounts/', include('django.contrib.auth.urls')),
-    path('accounts/', include('accounts.urls'))
+    path('accounts/', include('accounts.urls')),
 ]
