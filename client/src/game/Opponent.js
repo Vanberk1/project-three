@@ -67,7 +67,6 @@ export default class Opponent {
                     angle = -90;
                     break;
             }
-            console.log(this.position);
             card.makeCardObject(scene, x, y, "blue-card-back", false);
             card.setAngle(angle);
             i++;
@@ -106,7 +105,6 @@ export default class Opponent {
     }
 
     addCardToHand(scene, cardData) {
-        console.log(this.hand);
         this.hand[cardData.index] = new Card(cardData.index, false);
         let newCard = this.hand[cardData.index];
         newCard.makeCardObject(scene, this.gameWidth / 2 + 100, this.gameHeight / 2, "red-card-back", false);
@@ -127,7 +125,6 @@ export default class Opponent {
 
         for(const cardIndex in cards) {
             if(index == cardIndex) {
-                console.log(cards[cardIndex]);
                 cards[cardIndex].cardObject.destroy();
                 delete cards[cardIndex];
             }
@@ -138,8 +135,6 @@ export default class Opponent {
 
     repositionHand() {
         let hand = this.hand;
-        console.log(this.hand);
-
         let cardCount = Object.keys(hand).length;
 
         let i = 0;

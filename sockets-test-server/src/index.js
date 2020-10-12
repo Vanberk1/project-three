@@ -9,13 +9,12 @@ const clientsHash = {};
 const gamesHash = {};
 
 io.on('connection', (socket) => {
-    console.log('a user connected: ', socket.id);
+    console.log('[connection] New client:', socket.id);
     clientsHash[socket.id] = socket;
     socket.emit('newClient', { clientId: socket.id });
     
     socket.on('createGame', (data) => {
-        console.log("createGame");
-        let gameId = guid();
+        let gameId = newId();
         let clientId = data.clientId;
         let clients = {};
         clients[clientId] = 1;
@@ -28,13 +27,12 @@ io.on('connection', (socket) => {
             game: gamesHash[gameId]
         };
 
-        console.log("new game: " + gameId);
+        console.log("[createGame] New game:", gameId);
         let client = clientsHash[clientId];
         client.emit("createGame", payLoad);
     });
 
     socket.on('joinGame', (data) => {
-        console.log("joinGame");
         let gameId = data.gameId;
         let clientId = data.clientId;
         if(gamesHash.hasOwnProperty(gameId)) {
@@ -42,7 +40,7 @@ io.on('connection', (socket) => {
             if(clientsHash.hasOwnProperty(clientId)) {
                 let turn = Object.keys(game.clients).length + 1;
                 game.clients[clientId] = turn;
-                console.log("Client " + clientId + "joined to game " + gameId);
+                console.log("[joinGame] Client:", clientId, "joined to game:", gameId);
                 let payLoad = {
                     game: game
                 };
@@ -62,7 +60,9 @@ io.on('connection', (socket) => {
             let gameState = makeServerState(clients);
             
             game.state = gameState;
-    
+            
+
+            console.log("[startGame]: Game:", gameId, "started");
             for(const clientId in clients) {
                 let clientState = makeClientState(game.state, clientId);
 
@@ -76,18 +76,20 @@ io.on('connection', (socket) => {
     });
 
     socket.on('dropCard', (data) => {
-        console.log(data);
         let clientPlaying = data.clientId;
         let gameId = data.gameId;
         let cardIndex = data.cardIndex;
         let game = gamesHash[gameId];
         let client = clientsHash[clientPlaying];
+        console.log("[dropCard] Client:", clientPlaying, "play", cardIndex, "card in game:", gameId);
         if(game && client && game.clients.hasOwnProperty(clientPlaying)) {
             let gameState = game.state;
             let clientCards = gameState.playersCards[clientPlaying]
             let playedCard;
             // TODO: Add from what cards group was dropped
+            console.log("Card played:", cardIndex);
             clientCards.hand = clientCards.hand.filter(card => { 
+                console.log("card:", card.index);
                 if(card.index !== cardIndex) {
                     return true;
                 }
@@ -96,9 +98,6 @@ io.on('connection', (socket) => {
                     return false;
                 }
             });
-
-            console.log(game.state.playersCards);
-            console.log(playedCard);
 
             game.state.pile.push(playedCard);
 
@@ -114,14 +113,13 @@ io.on('connection', (socket) => {
                 clientsHash[clientId].emit("dropCard", payload);
             }
 
+            console.log(clientCards.hand.length);
             if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
                 let topCard = JSON.parse(JSON.stringify(game.state.top));
-                console.log("Before: ", game.state.top);
-                
+                clientCards.hand.push(topCard);
+
                 let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
-                gameState.top = { index: guid(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
-                
-                console.log("After: ", game.state.top);
+                gameState.top = { index: newId(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
 
                 let payLoad = {
                     gameId: game.gameId,
@@ -129,16 +127,47 @@ io.on('connection', (socket) => {
                     pickUpCard: topCard,
                     deskCount: gameState.desk.length
                 };
+
+                console.log("[pickUpCard] Client:", clientPlaying, "pick up", topCard.index, "card in game:", gameId);
                 
                 for(const clientId in clients) {
                     clientsHash[clientId].emit("pickUpCard", payLoad);
+                }
+            }
+
+        }
+    });
+
+    socket.on('finishTurn', (data) => {
+        let gameId = data.gameId;
+        let clientId = data.clientId;
+        let game = gamesHash[gameId];
+        if(game) {
+            let clientTurn = game.clients[clientId];
+            if(clientTurn && clientTurn === game.state.actualTurn) {
+                let turn = game.state.actualTurn
+                let numClients = Object.keys(game.clients).length; 
+                turn = turn + 1 <= numClients ? turn + 1 : 1;
+                game.state.actualTurn = turn;
+                game.state.turnsCount++;
+                
+                console.log("[finishTurn] Actual turn:", turn, "Turns count:", game.state.turnsCount);
+
+                let payLoad = {
+                    actualTurn: game.state.actualTurn,
+                    turnsCount: game.state.turnsCount
+                };
+
+                let clients = game.clients;
+                for(const clientId in clients) {
+                    clientsHash[clientId].emit("changeTurn", payLoad);
                 }
             }
         }
     });
 
     socket.on('disconnect', () => {
-        console.log('user '+ socket.id +' disconnected');
+        console.log('[disconnect] Client: '+ socket.id +' disconnected');
         delete clientsHash[socket.id];
     });
 });
@@ -146,7 +175,9 @@ io.on('connection', (socket) => {
 let makeServerState = (clients) => {
     let desk = JSON.parse(JSON.stringify(deskData));
     let playersCards = {};
+    let turns = [];
     for(const clientId in clients) { 
+        turns.push(clients[clientId]);
         playersCards[clientId] = {
                 turn: clients[clientId],
                 hand: [],
@@ -156,7 +187,7 @@ let makeServerState = (clients) => {
         for(let j = 0; j < 3; j++) {
             let cardIndex = Math.floor(Math.random() * desk.desk.length);
             playersCards[clientId].hand.push({
-                index: guid(),
+                index: newId(),
                 card: desk.desk.splice(cardIndex, 1)[0]
             });
         }
@@ -164,7 +195,7 @@ let makeServerState = (clients) => {
         for(let j = 0; j < 3; j++) {
             let cardIndex = Math.floor(Math.random() * desk.desk.length);
             playersCards[clientId].lookDown.push({
-                index: guid(),
+                index: newId(),
                 card: desk.desk.splice(cardIndex, 1)[0]
             });
         }
@@ -172,23 +203,27 @@ let makeServerState = (clients) => {
         for(let j = 0; j < 3; j++) {
             let cardIndex = Math.floor(Math.random() * desk.desk.length);
             playersCards[clientId].lookUp.push({
-                index: guid(),
+                index: newId(),
                 card: desk.desk.splice(cardIndex, 1)[0]
             });
         }
     }
+
+    let actualTurn = turns[Math.floor(Math.random() * turns.length)];
     
     let gameState = {
         desk: desk.desk,
         pile: [],
         discarded: [],
+        actualTurn: actualTurn,
+        turnsCount: 0,
         playersCards: playersCards
     };
 
     let pileIndex = Math.floor(Math.random() * gameState.desk.length);
-    gameState.pile.push({ index: guid(), card: gameState.desk.splice(pileIndex, 1)[0] });
+    gameState.pile.push({ index: newId(), card: gameState.desk.splice(pileIndex, 1)[0] });
     let topIndex = Math.floor(Math.random() * gameState.desk.length);
-    gameState.top = { index: guid(), card: gameState.desk.splice(topIndex, 1)[0] }; 
+    gameState.top = { index: newId(), card: gameState.desk.splice(topIndex, 1)[0] }; 
 
     return gameState;
 }
@@ -218,14 +253,16 @@ let makeClientState = (gameState, clientId) => {
         clientCards: clientCards,
         opponentsCards: opponentsCards,
         pile: gameState.pile,
+        actualTurn: gameState.actualTurn,
+        turnsCount: gameState.turnsCount,
         deskCount: gameState.desk.length
     }
 
     return clientState
 }
 
-let guid = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+let newId = () => {
+  return 'xxxxxxxxxxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });

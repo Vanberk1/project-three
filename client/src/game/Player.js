@@ -10,11 +10,13 @@ const types = {
 
 export default class Player {
     constructor(turn, handState) {
-        this.hand = handState.hand
-        this.lookUp = handState.lookUp
-        this.lookDown = handState.lookDown
-        this.turn = turn
-        this.inTurn = false
+        this.hand = handState.hand;
+        this.lookUp = handState.lookUp;
+        this.lookDown = handState.lookDown;
+        this.turn = turn;
+        this.inTurn = false;
+        this.cardPlayed = false;
+        this.canPlay = true;
 
         this.sortHand();
     }
@@ -62,10 +64,13 @@ export default class Player {
             }
             i++;
         }
+
+        if(!this.inTurn) {
+            this.disableHandInteractions();
+        }
     }
 
     addCardToHand(scene, cardData) {
-        console.log("Player-addCardToHand:", cardData);
         let hand = this.hand;
         let newCard = new Card(cardData.index, true, cardData.card);
         hand[cardData.index] = newCard;
@@ -100,7 +105,6 @@ export default class Player {
     }
 
     repositionHand() {
-        console.log(this.displayOrder);
         let hand = this.hand;
         let cardCount = Object.keys(hand).length;
 
@@ -126,8 +130,22 @@ export default class Player {
         this.repositionHand();
     }
 
-    pickCard(card) {
-       
+    enableHandInteractions() {
+        let hand = this.hand;
+        
+        for(const index in hand) {
+            let card = hand[index];
+            card.cardObject.setInteractive();
+        } 
+    }
+
+    disableHandInteractions() {
+        let hand = this.hand;
+        
+        for(const index in hand) {
+            let card = hand[index];
+            card.cardObject.disableInteractive();
+        } 
     }
 
 }
