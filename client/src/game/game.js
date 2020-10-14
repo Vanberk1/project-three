@@ -68,7 +68,6 @@ export default class Game extends Phaser.Scene {
             let pile = data.clientState.pile
             let cardDroppepd = pile[pile.length - 1];
             let clientId = data.clientPlaying;
-            this.player.canPlay = false;
             this.dropCard(clientId, data.droppedCard, cardDroppepd)
         });
 
@@ -115,6 +114,7 @@ export default class Game extends Phaser.Scene {
         this.player = null;
         this.game = null;
         this.opponents = [];
+        
         
         //Socket connections
         this.socketConnections();
@@ -166,9 +166,16 @@ export default class Game extends Phaser.Scene {
         
         this.input.on('dragend', (pointer, gameObject, dropped) => {
             gameObject.setTint();
-            if(!dropped && this.player.canPlay) {
-                gameObject.x = gameObject.input.dragStartX;
-                gameObject.y = gameObject.input.dragStartY;
+            let cardIndex = gameObject.getData("index");
+            let card = this.player.hand[cardIndex];
+            // TODO: Add from what cards group was dropped
+            if(card) {
+                let cardValue = this.player.hand[cardIndex].value;
+                let pileValue = this.game.state.pile.topCard.value;
+                if(!dropped || cardValue < pileValue && cardValue != 0 || cardValue != -1) {
+                    gameObject.x = gameObject.input.dragStartX;
+                    gameObject.y = gameObject.input.dragStartY;
+                }
             }
         });
         
@@ -176,20 +183,24 @@ export default class Game extends Phaser.Scene {
         this.input.on('drop', (pointer, gameObject, dropZone) => {
             if(this.player.canPlay) {
                 let cardIndex = gameObject.getData("index");
-                console.log(cardIndex);
-                console.log(this.game.gameId);
-                gameObject.x = dropZone.x;
-                gameObject.y = dropZone.y - 50;
-                gameObject.disableInteractive();
-                this.player.dropCardFromHand(cardIndex);
-    
-                let payLoad = {
-                    gameId: this.game.gameId,
-                    clientId: this.clientId,
-                    cardIndex: cardIndex
-                    // TODO: Add from what cards group was dropped
-                };
-                this.socket.emit('dropCard', payLoad);
+                // TODO: Add from what cards group was dropped
+                let cardValue = this.player.hand[cardIndex].value;
+                let pileValue = this.game.state.pile.topCard.value;
+                if(cardValue >= pileValue || cardValue == 0 || cardValue == -1) {
+                    console.log("Card index(drop):", cardIndex);
+                    gameObject.x = dropZone.x;
+                    gameObject.y = dropZone.y - 50;
+                    gameObject.disableInteractive();
+                    this.player.canPlay = false;
+                    this.player.dropCardFromHand(cardIndex);
+                    let payLoad = {
+                        gameId: this.game.gameId,
+                        clientId: this.clientId,
+                        cardIndex: cardIndex
+                        // TODO: Add from what cards group was dropped
+                    };
+                    this.socket.emit('dropCard', payLoad);
+                }
             }
         });
     }
@@ -276,6 +287,32 @@ export default class Game extends Phaser.Scene {
         this.renderBoard(gameState.deskCount);
     } 
 
+    sortOpponents(playerTurn, opponents) {
+        let temp = [...opponents];    
+        temp.sort((a, b) => { return a.turn - b.turn });
+        let sortedOpponents = [];
+
+        if(playerTurn == 1 || playerTurn == opponents.length + 1) {
+            sortedOpponents = temp;
+        }
+        else {
+            let minors = [];
+            temp.forEach(opponent => {
+                if(playerTurn > opponent.turn) {
+                    minors.push(opponent);
+                }
+                else {
+                    sortedOpponents.push(opponent);
+                }
+            });
+
+            if(minors.length) {
+                sortedOpponents = sortedOpponents.concat(minors);
+            }
+        }
+        return sortedOpponents;
+    }
+
     dropCard(clientId, droppedCardIndex, cardData) {
         console.log(cardData);
         let playerTurn = this.game.clients[clientId];
@@ -332,32 +369,6 @@ export default class Game extends Phaser.Scene {
                 }
             });
         }
-    }
-
-    sortOpponents(playerTurn, opponents) {
-        let temp = [...opponents];    
-        temp.sort((a, b) => { return a.turn - b.turn });
-        let sortedOpponents = [];
-
-        if(playerTurn == 1 || playerTurn == opponents.length + 1) {
-            sortedOpponents = temp;
-        }
-        else {
-            let minors = [];
-            temp.forEach(opponent => {
-                if(playerTurn > opponent.turn) {
-                    minors.push(opponent);
-                }
-                else {
-                    sortedOpponents.push(opponent);
-                }
-            });
-
-            if(minors.length) {
-                sortedOpponents = sortedOpponents.concat(minors);
-            }
-        }
-        return sortedOpponents;
     }
     
     drawLobby() {
@@ -417,6 +428,9 @@ export default class Game extends Phaser.Scene {
         let deskCountText = "x" + deskCount;
         this.deskCount = this.add.text(this.canvas.width / 2 + 150, this.canvas.height / 2 + 33, [deskCountText]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
         
+
+        this.pileCount = this.add.text()
+
         this.finishButton = this.add.text(1000, 600, ["Terminar turno"]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff');
         this.finishButton.visible = false;
         this.finishButton.on('pointerdown', () => {
@@ -436,6 +450,5 @@ export default class Game extends Phaser.Scene {
             this.finishButton.visible = true;
             this.finishButton.setInteractive();
         }
-
     }
 }

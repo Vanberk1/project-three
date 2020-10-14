@@ -81,15 +81,12 @@ io.on('connection', (socket) => {
         let cardIndex = data.cardIndex;
         let game = gamesHash[gameId];
         let client = clientsHash[clientPlaying];
-        console.log("[dropCard] Client:", clientPlaying, "play", cardIndex, "card in game:", gameId);
         if(game && client && game.clients.hasOwnProperty(clientPlaying)) {
             let gameState = game.state;
             let clientCards = gameState.playersCards[clientPlaying]
             let playedCard;
             // TODO: Add from what cards group was dropped
-            console.log("Card played:", cardIndex);
             clientCards.hand = clientCards.hand.filter(card => { 
-                console.log("card:", card.index);
                 if(card.index !== cardIndex) {
                     return true;
                 }
@@ -98,43 +95,50 @@ io.on('connection', (socket) => {
                     return false;
                 }
             });
+            console.log("[dropCard] Client:", clientPlaying, "play", playedCard, "card in game:", gameId);
 
-            game.state.pile.push(playedCard);
+            let pile = game.state.pile;
+            let pileValue = pile[pile.length - 1].card.value;
+            let cardValue = playedCard.card.value;
 
-            let clients = game.clients;
-            for(const clientId in clients) {
-                let clientState = makeClientState(game.state, clientId);
-                let payload = {
-                    gameId: game.gameId,
-                    clientPlaying: clientPlaying,
-                    droppedCard: cardIndex,
-                    clientState: clientState
-                }
-                clientsHash[clientId].emit("dropCard", payload);
-            }
+            console.log("Cards in hand:", clientCards.hand.length);
 
-            console.log(clientCards.hand.length);
-            if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
-                let topCard = JSON.parse(JSON.stringify(game.state.top));
-                clientCards.hand.push(topCard);
-
-                let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
-                gameState.top = { index: newId(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
-
-                let payLoad = {
-                    gameId: game.gameId,
-                    clientId: clientPlaying,
-                    pickUpCard: topCard,
-                    deskCount: gameState.desk.length
-                };
-
-                console.log("[pickUpCard] Client:", clientPlaying, "pick up", topCard.index, "card in game:", gameId);
-                
+            if(cardValue >= pileValue || cardValue == 0 || cardValue == -1) {
+                pile.push(playedCard);
+    
+                let clients = game.clients;
                 for(const clientId in clients) {
-                    clientsHash[clientId].emit("pickUpCard", payLoad);
+                    let clientState = makeClientState(game.state, clientId);
+                    let payload = {
+                        gameId: game.gameId,
+                        clientPlaying: clientPlaying,
+                        droppedCard: cardIndex,
+                        clientState: clientState
+                    }
+                    clientsHash[clientId].emit("dropCard", payload);
+                }
+    
+                if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
+                    let topCard = JSON.parse(JSON.stringify(game.state.top));
+                    clientCards.hand.push(topCard);
+    
+                    let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
+                    gameState.top = { index: newId(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
+    
+                    let payLoad = {
+                        gameId: game.gameId,
+                        clientId: clientPlaying,
+                        pickUpCard: topCard,
+                        deskCount: gameState.desk.length
+                    };
+    
+                    console.log("[pickUpCard] Client:", clientPlaying, "pick up", topCard, "card in game:", gameId);
+                    
+                    for(const clientId in clients) {
+                        clientsHash[clientId].emit("pickUpCard", payLoad);
+                    }
                 }
             }
-
         }
     });
 

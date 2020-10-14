@@ -6,7 +6,6 @@ export default class Card {
             this.type = data.type;
             this.value = data.value;
         }
-        this.effect = null;
     }
 
     makeCardObject(scene, x, y, texture, interactive, frame) {
@@ -49,19 +48,4 @@ export default class Card {
         this.isLookingUp = true;
     }
 
-    useEffect(game) {
-        if(this.hasEffect()) {
-            this.effect.useEffect(game);
-        }
-    }
-
-    hasEffect() {
-        return this.effect != null ? true : false;
-    }
-
-    setEffect(effect) {
-        if(effect != null) {
-            this.effect = effect;
-        }
-    }
 }
