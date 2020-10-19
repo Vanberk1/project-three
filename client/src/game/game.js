@@ -33,14 +33,14 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('createGame', (data) => {
+            console.log("[createGame]", data.game);
             this.game = data.game;
-            console.log(this.game);
             this.drawLobby();
         });
 
         this.socket.on('joinGame', (data) => {
             this.game = data.game;
-            console.log(this.game);
+            console.log("[joinGame] this.game:", this.game);
             if(this.dealText) {
                 this.dealText.destroy();
             }
@@ -53,7 +53,8 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('startGame', (data) => {
-            if(this.dealText) {
+            console.log("[startGame] client state:", data.clientState);
+            if(this.clientId == this.game.hostId) {
                 this.dealText.destroy();
             }
             this.playersNames.forEach(name => {
@@ -63,36 +64,59 @@ export default class Game extends Phaser.Scene {
         });
 
         this.socket.on('dropCard', (data) => {
-            console.log(data);
-            console.log("pile:", data.clientState.pile);
-            let pile = data.clientState.pile
-            let cardDroppepd = pile[pile.length - 1];
+            console.log("[dropCard]", data);
+            let pile = data.clientState.pile;
+            let cardDropped = pile[pile.length - 1];
             let clientId = data.clientPlaying;
-            this.dropCard(clientId, data.droppedCard, cardDroppepd)
+            this.player.cardPlayed = true;
+            this.game.state.pile.pileData = pile;
+            if(data.clientState.stackedPile > 1) {
+                let pileCountText = "x" + data.clientState.stackedPile;
+                this.pileCount.text = pileCountText;
+                this.pileCount.visible = true;
+            }
+            else {
+                this.pileCount.visible = false;
+            }
+            this.dropCard(clientId, data.droppedCard, cardDropped)
         });
 
         this.socket.on('pickUpCard', (data) => {
-            console.log(data);
+            console.log("[pickUpCard]", data);
             this.addCardToHand(data.clientId, data.pickUpCard);
             let deskCountText = "x" + data.deskCount;
             this.deskCount.text = deskCountText;
             if(data.deskCount === 0) {
                 this.deskCard.visible = false;
             }
-            this.player.canPlay = true;
         }); 
 
         this.socket.on('changeTurn', (data) => {
-            console.log(data);
             this.actualTurn = data.actualTurn;
-            this.turnsCount = data.turnsCount;
-
+            this.turnsCount = data.turnsCount;  
+            console.log("[changeTurn]", data);
             if(this.player.turn == data.actualTurn) {
                 this.player.inTurn = true;
+                this.player.cardPlayed = false;
+                console.log(!this.checkPickUpPile());
+                if(!this.checkPickUpPile()) {
+                    let payLoad = {
+                        gameId: this.game.gameId,
+                        clientId: this.clientId
+                    };
+                    this.socket.emit('pickUpPile', payLoad);
+                }
                 this.player.enableHandInteractions();
                 this.finishButton.setInteractive();
                 this.finishButton.visible = true;
             }
+        });
+
+        this.socket.on('pickUpPile', (data) => {
+            console.log("[pickUpCard]", data);
+            let clientId = data.clientId;
+            let newCards = data.newCards;
+            this.pickUpPile(clientId, newCards);
         });
     }
 
@@ -114,7 +138,6 @@ export default class Game extends Phaser.Scene {
         this.player = null;
         this.game = null;
         this.opponents = [];
-        
         
         //Socket connections
         this.socketConnections();
@@ -170,9 +193,7 @@ export default class Game extends Phaser.Scene {
             let card = this.player.hand[cardIndex];
             // TODO: Add from what cards group was dropped
             if(card) {
-                let cardValue = this.player.hand[cardIndex].value;
-                let pileValue = this.game.state.pile.topCard.value;
-                if(!dropped || cardValue < pileValue && cardValue != 0 || cardValue != -1) {
+                if(!this.checkValidCard(cardIndex) || !dropped) {
                     gameObject.x = gameObject.input.dragStartX;
                     gameObject.y = gameObject.input.dragStartY;
                 }
@@ -181,17 +202,20 @@ export default class Game extends Phaser.Scene {
         
         this.pileDropZone = this.add.zone(this.canvas.width / 2, this.canvas.height / 2, 100, 130).setRectangleDropZone(100, 130);
         this.input.on('drop', (pointer, gameObject, dropZone) => {
-            if(this.player.canPlay) {
-                let cardIndex = gameObject.getData("index");
-                // TODO: Add from what cards group was dropped
-                let cardValue = this.player.hand[cardIndex].value;
-                let pileValue = this.game.state.pile.topCard.value;
-                if(cardValue >= pileValue || cardValue == 0 || cardValue == -1) {
-                    console.log("Card index(drop):", cardIndex);
-                    gameObject.x = dropZone.x;
-                    gameObject.y = dropZone.y - 50;
-                    gameObject.disableInteractive();
-                    this.player.canPlay = false;
+            let cardIndex = gameObject.getData("index");
+            // TODO: Add from what cards group was dropped
+            if(this.player.inTurn) {
+                if(this.checkValidCard(cardIndex)) {
+                    // console.log("Card index(drop):", cardIndex);
+                    let card = this.player.hand[cardIndex];
+                    let newCardData = {
+                        index: cardIndex,
+                        card: {
+                            type: card.type,
+                            value: card.value
+                        }
+                    };
+                    this.addCardToPile(newCardData);
                     this.player.dropCardFromHand(cardIndex);
                     let payLoad = {
                         gameId: this.game.gameId,
@@ -211,6 +235,7 @@ export default class Game extends Phaser.Scene {
     createGame(gameState) {
         // Create player state
         let playerTurn = gameState.clientCards.turn;
+        // console.log(playerTurn)
         let playerCardsData = gameState.clientCards;
         let playerCards = {
             hand: {},
@@ -265,7 +290,7 @@ export default class Game extends Phaser.Scene {
 
         this.opponents = this.sortOpponents(this.player.turn, this.opponents);
 
-        console.log(gameState);
+        // console.log(gameState);
 
         this.game.state = {
             pile: {
@@ -280,9 +305,9 @@ export default class Game extends Phaser.Scene {
         let cardData = gameState.pile[gameState.pile.length - 1];  
         this.addCardToPile(cardData);
         
-        console.log(this.player);
-        console.log(this.opponents);
-        console.log(this.game.state);
+        // console.log(this.player);
+        // console.log(this.opponents);
+        // console.log(this.game.state);
 
         this.renderBoard(gameState.deskCount);
     } 
@@ -315,8 +340,7 @@ export default class Game extends Phaser.Scene {
 
     dropCard(clientId, droppedCardIndex, cardData) {
         console.log(cardData);
-        let playerTurn = this.game.clients[clientId];
-
+        let playerTurn = this.game.clients[clientId].turn;
         if(playerTurn !== this.player.turn) {
             this.opponents.forEach(opponent => {
                 if(opponent.turn == playerTurn) {
@@ -330,7 +354,7 @@ export default class Game extends Phaser.Scene {
     } 
 
     addCardToPile(cardData) {
-        console.log(cardData);
+        // console.log(cardData);
         let newCardData = {
             index: cardData.index,
             card: {
@@ -349,26 +373,76 @@ export default class Game extends Phaser.Scene {
         else {
             newCard.makeCardObject(this, this.canvas.width / 2, this.canvas.height / 2, "blue-joker", false);
         }
-        console.log(this.game);
-        if(this.game.state.pile.topCard) {
-            delete this.game.state.pile.topCard;
+
+        if(this.game.state.pile.topCard) { 
+            this.game.state.pile.topCard.cardObject.destroy();
         }
         this.game.state.pile.topCard = newCard;
     }
 
     addCardToHand(playerId, cardData) {
-        let playerTurn = this.game.clients[playerId];
-
-        if(playerTurn === this.player.turn) {
+        let playerTurn = this.player.turn;
+        let playingTurn = this.game.clients[playerId].turn; 
+        if(playingTurn === playerTurn) {
             this.player.addCardToHand(this, cardData);
         }
         else {
             this.opponents.forEach(opponent => {
-                if(playerTurn === opponent.turn) {
+                if(playingTurn === opponent.turn) {
                     opponent.addCardToHand(this, cardData);
                 }
             });
         }
+    }
+
+    pickUpPile(clientId, newCards) {
+        console.log("pickUpPile");
+        this.game.state.pile.topCard.cardObject.destroy();
+        this.game.state.pile.topCard = null;
+        this.game.state.pile.pileData = [];
+        newCards.forEach(cardData => {
+            this.addCardToHand(clientId, cardData);
+        });
+    }
+
+    checkValidCard(cardIndex) {
+        let pile = this.game.state.pile;
+        if(pile.pileData.length < 1) {
+            return true;
+        }
+        let pileValue = pile.pileData[pile.pileData.length - 1].card.value;
+        let cardValue = this.player.hand[cardIndex].value;
+        let cardPlayed = this.player.cardPlayed;
+        // console.log("pileValue:", pileValue);
+        // console.log("cardValue:", cardValue);
+        // console.log("cardPlayed:", cardPlayed);
+        if(!cardPlayed) {
+            if(cardValue >= pileValue || cardValue == 0 || cardValue == -1) {
+                return true;
+            }
+        }
+        else {
+            if(cardValue == pileValue) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    checkPickUpPile() {
+        let pile = this.game.state.pile;
+        let pileValue = pile.pileData[pile.pileData.length - 1].card.value;
+        let hand = this.player.hand;
+
+        let haveValidCard = false;
+        for(const cardIndex in hand) {
+            let value = hand[cardIndex].value;
+            if(value >= pileValue || value == 0 || value == -1) {
+                haveValidCard = true;
+            }
+        }
+        return haveValidCard;
     }
     
     drawLobby() {
@@ -376,8 +450,8 @@ export default class Game extends Phaser.Scene {
         if(this.joinGameButton) this.joinGameButton.destroy()
         if(this.inputText) this.inputText.destroy();
 
-        console.log("Client id: " + this.clientId);
-        console.log("Host id: " + this.game.hostId);
+        // console.log("Client id: " + this.clientId);
+        // console.log("Host id: " + this.game.hostId);
 
         if(this.clientId == this.game.hostId) {
             this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
@@ -393,7 +467,7 @@ export default class Game extends Phaser.Scene {
         let players = this.game.clients;
         let i = 0;
         for(const id in players) {
-            let playerName = "Player " + id + " Turn: " + players[id];
+            let playerName = "Player " + id + " Turn: " + players[id].turn;
             this.playersNames.push(this.add.text(200, 50 + (i * 25), [playerName]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff'));
             i++
         }
@@ -428,17 +502,17 @@ export default class Game extends Phaser.Scene {
         let deskCountText = "x" + deskCount;
         this.deskCount = this.add.text(this.canvas.width / 2 + 150, this.canvas.height / 2 + 33, [deskCountText]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
         
-
-        this.pileCount = this.add.text()
+        this.pileCount = this.add.text(this.canvas.width / 2 + 45, this.canvas.height / 2 + 33, "").setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
+        this.pileCount.visible = false;
 
         this.finishButton = this.add.text(1000, 600, ["Terminar turno"]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff');
         this.finishButton.visible = false;
         this.finishButton.on('pointerdown', () => {
-            this.player.inTurn = false
             this.player.disableHandInteractions();
             this.finishButton.disableInteractive();
             this.finishButton.visible = false;
-
+            
+            this.player.inTurn = false
             let payLoad = {
                 gameId: this.game.gameId,
                 clientId: this.clientId

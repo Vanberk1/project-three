@@ -28,14 +28,14 @@ export default class Card {
 
     makeDraggeable(scene) {
         scene.input.setDraggable(this.cardObject);
-        this.cardObject.on("pointerover", () => {
-            this.cardObject.y -= 50;
+        this.cardObject.on("pointerdown", () => {
+            // this.cardObject.y -= 50;
             this.cardObject.setScale(3.0);
             scene.children.bringToTop(this.cardObject);
         });
         
-        this.cardObject.on("pointerout", () => {
-            this.cardObject.y += 50;
+        this.cardObject.on("pointerup", () => {
+            // this.cardObject.y += 50;
             this.cardObject.setScale(2.0);
         });
     }

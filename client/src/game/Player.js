@@ -16,7 +16,6 @@ export default class Player {
         this.turn = turn;
         this.inTurn = false;
         this.cardPlayed = false;
-        this.canPlay = true;
 
         this.sortHand();
     }
@@ -73,6 +72,7 @@ export default class Player {
     addCardToHand(scene, cardData) {
         let hand = this.hand;
         let newCard = new Card(cardData.index, true, cardData.card);
+        console.log("pick up card:", cardData);
         hand[cardData.index] = newCard;
         this.sortHand();
 
@@ -125,6 +125,7 @@ export default class Player {
     dropCardFromHand(index) {
         let hand = this.hand;
         this.displayOrder = this.displayOrder.filter(cardIndex => { return cardIndex !== index });
+        hand[index].cardObject.destroy();
         delete hand[index];
 
         this.repositionHand();
