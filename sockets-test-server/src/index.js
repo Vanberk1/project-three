@@ -123,6 +123,21 @@ io.on('connection', (socket) => {
                 }
 
                 console.log(clientCards.hand);
+
+                if(gameState.stackedPile >= 4 || cardValue == 9) {
+                    gameState.discarded.push([...gameState.pile]);
+                    gameState.pile = [];
+                    gameState.stackedPile = 0;
+                    for(clientId in clients) {
+                        let payLoad = {
+
+                        };
+                        clientsHash[clientId].emit("discardPile", payLoad);
+                    }
+
+                    console.log("pile", gameState.pile);
+                    console.log("discarted", gameState.discarded);
+                }
     
                 if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
                     let topCard = JSON.parse(JSON.stringify(game.state.top));

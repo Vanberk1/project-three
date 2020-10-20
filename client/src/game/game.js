@@ -118,6 +118,14 @@ export default class Game extends Phaser.Scene {
             let newCards = data.newCards;
             this.pickUpPile(clientId, newCards);
         });
+
+        this.socket.on('discardPile', (data) => {
+            console.log("[discardPile]", data);
+            this.game.state.pile.topCard.cardObject.destroy();
+            this.game.state.pile.topCard = null;
+            this.game.state.pile.pileData = [];
+            this.pileCount.visible = false;
+        });
     }
 
     preload() {
@@ -432,17 +440,21 @@ export default class Game extends Phaser.Scene {
 
     checkPickUpPile() {
         let pile = this.game.state.pile;
-        let pileValue = pile.pileData[pile.pileData.length - 1].card.value;
-        let hand = this.player.hand;
-
-        let haveValidCard = false;
-        for(const cardIndex in hand) {
-            let value = hand[cardIndex].value;
-            if(value >= pileValue || value == 0 || value == -1) {
-                haveValidCard = true;
+        if(pile.pileData.length) {
+            let pileValue = pile.pileData[pile.pileData.length - 1].card.value;
+            let hand = this.player.hand;
+    
+            let haveValidCard = false;
+            for(const cardIndex in hand) {
+                let value = hand[cardIndex].value;
+                if(value >= pileValue || value == 0 || value == -1) {
+                    haveValidCard = true;
+                }
             }
+            return haveValidCard;
         }
-        return haveValidCard;
+
+        return true;
     }
     
     drawLobby() {
