@@ -1,19 +1,32 @@
 export default class Card {
-    constructor(index, isLookingUp, data) {
+    constructor(index, data) {
         this.index = index;
-        this.isLookingUp = isLookingUp;
-        if(data) {
-            this.type = data.type;
-            this.value = data.value;
-        }
+        this.isLookingUp = data ? true : false;
+        this.type = data ? data.type : null;
+        this.value = data ? data.value : null
+
+        this.types = {
+            0: 'club',
+            1: 'diamond',
+            2: 'heart',
+            3: 'spade',
+            4: 'joker'
+        };
     }
 
-    makeCardObject(scene, x, y, texture, interactive, frame) {
-        if(frame) {
-            this.cardObject = scene.add.image(x, y, texture, frame)
+    makeCardObject(scene, x, y, interactive) {
+        if(this.isLookingUp) {
+            if(this.value != -1) {
+                let value = this.value == 13 ? 0 : this.value;
+                let texture = this.types[this.type];
+                this.cardObject = scene.add.image(x, y, texture, value);
+            }
+            else {
+                this.cardObject = scene.add.image(x, y, "blue-joker");
+            }
         }
         else {
-            this.cardObject = scene.add.image(x, y, texture);
+            this.cardObject = scene.add.image(x, y, "blue-card-back");
         }
 
         if(interactive) {
@@ -40,12 +53,15 @@ export default class Card {
         });
     }
 
+    setInteractive() {
+        this.cardObject.setInteractive();
+    }
+
+    disableInteractive() {
+        this.cardObject.disableInteractive();
+    }
+
     setAngle(angle) {
         this.cardObject.angle = angle;
     }
-
-    turnLookUp() {
-        this.isLookingUp = true;
-    }
-
 }

@@ -20,47 +20,35 @@ export default class Player {
         this.sortHand();
     }
 
-    makeCardsObjects(scene, types) {
+    makeCardsObjects(scene) {
         let hand = this.hand
         let lookUp = this.lookUp;
         let lookDown = this.lookDown;
 
         this.gameWidth = scene.canvas.width;
         this.gameHeight = scene.canvas.height;
-        let cardCount = Object.keys(hand).length;
-        let posX = this.gameWidth / 2 - (cardCount * 33 * 2) / 2 + 33;
-        let posY = this.gameHeight - 70;
+        let handCardsCant = Object.keys(hand).length;
+        let x = this.gameWidth / 2 - (handCardsCant * 33 * 2) / 2 + 33;
+        let y = this.gameHeight - 70;
 
         let i = 0;
-        this.displayOrder.forEach(cardIndex =>  {
+        this.handDisplayOrder.forEach(cardIndex =>  {
             let card = hand[cardIndex]; 
-            if(card.value >= 0) {
-                let texture = types[card.type];
-                card.makeCardObject(scene, posX + (i * 70), posY, texture, true, hand[cardIndex].value);
-            }
-            else {
-                card.makeCardObject(scene, posX + (i * 70), posY, "blue-joker", true);
-            }
+            card.makeCardObject(scene, x + (i * 70), y, true);
             i++;
         });
 
         i = 0;
         for(const cardIndex in lookDown) {
             let card = lookDown[cardIndex]; 
-            card.makeCardObject(scene, posX + (i * 70), posY - 100, "blue-card-back", false);
+            card.makeCardObject(scene, x + (i * 70), y - 100);
             i++;
         }
 
         i = 0;
         for(const cardIndex in lookUp) {
             let card = lookUp[cardIndex]; 
-            if(card.value >= 0) {
-                let texture = types[card.type];
-                card.makeCardObject(scene, posX + (i * 70), posY - 120, texture, false, lookUp[cardIndex].value);
-            }
-            else {
-                card.makeCardObject(scene, posX + (i * 70), posY - 120, "blue-joker", false);
-            }
+            card.makeCardObject(scene, x + (i * 70), y - 120);
             i++;
         }
 
@@ -71,25 +59,19 @@ export default class Player {
 
     addCardToHand(scene, cardData) {
         let hand = this.hand;
-        let newCard = new Card(cardData.index, true, cardData.card);
+        let newCard = new Card(cardData.index, cardData.card);
         console.log("pick up card:", cardData);
         hand[cardData.index] = newCard;
         this.sortHand();
 
-        if(newCard.value >= 0) {
-            let texture = types[newCard.type];
-            newCard.makeCardObject(scene, 0, this.gameHeight - 70, texture, true, newCard.value);
-        }
-        else {
-            newCard.makeCardObject(scene, 0, this.gameHeight - 70, "blue-joker", true);
-        }
+        newCard.makeCardObject(scene, 0, this.gameHeight - 70, true);
 
         this.repositionHand();
     }
 
     sortHand() {
         let hand = this.hand;
-        let displayOrder = [];
+        let handDisplayOrder = [];
         let unorderedHand = [];
 
         for(const index in hand) {
@@ -97,23 +79,27 @@ export default class Player {
             unorderedHand.push(card);
         }
 
-        displayOrder = unorderedHand.sort((a, b) => {
+        handDisplayOrder = unorderedHand.sort((a, b) => {
+            if(a.value == 0 || a.value == -1)
+                return 1
+            else if(b.value == 0 || b.value == -1)
+                return -1
             return a.value - b.value;
         });
         
-        this.displayOrder = displayOrder.map(card => { return card.index; });
+        this.handDisplayOrder = handDisplayOrder.map(card => { return card.index; });
     }
 
     repositionHand() {
         let hand = this.hand;
-        let cardCount = Object.keys(hand).length;
+        let handCardsCant = Object.keys(hand).length;
 
-        let posX = this.gameWidth / 2 - (cardCount * 33 * 2) / 2 + 33;
+        let x = this.gameWidth / 2 - (handCardsCant * 33 * 2) / 2 + 33;
 
         let i = 0;
-        this.displayOrder.forEach(cardIndex => {
+        this.handDisplayOrder.forEach(cardIndex => {
             let card = hand[cardIndex].cardObject;
-            card.x = posX + (i * 70);
+            card.x = x + (i * 70);
             i++;
         });
     }
@@ -124,7 +110,7 @@ export default class Player {
 
     dropCardFromHand(index) {
         let hand = this.hand;
-        this.displayOrder = this.displayOrder.filter(cardIndex => { return cardIndex !== index });
+        this.handDisplayOrder = this.handDisplayOrder.filter(cardIndex => { return cardIndex !== index });
         hand[index].cardObject.destroy();
         delete hand[index];
 
@@ -133,19 +119,17 @@ export default class Player {
 
     enableHandInteractions() {
         let hand = this.hand;
-        
         for(const index in hand) {
             let card = hand[index];
-            card.cardObject.setInteractive();
+            card.setInteractive();
         } 
     }
 
     disableHandInteractions() {
         let hand = this.hand;
-        
         for(const index in hand) {
             let card = hand[index];
-            card.cardObject.disableInteractive();
+            card.disableInteractive();
         } 
     }
 

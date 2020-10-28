@@ -75,92 +75,74 @@ io.on('connection', (socket) => {
     });
 
     socket.on('dropCard', (data) => {
+        console.log("dropCard");
         let clientPlaying = data.clientId;
         let gameId = data.gameId;
         let cardIndex = data.cardIndex;
         let game = gamesHash[gameId];
-        let client = clientsHash[clientPlaying];
-        if(game && client && game.clients.hasOwnProperty(clientPlaying)) {
-            let gameState = game.state;
-            let clientCards = gameState.clientsCards[clientPlaying]
-            let playedCard;
-            // TODO: Add from what cards group was dropped
-            clientCards.hand = clientCards.hand.filter(card => { 
-                if(card.index !== cardIndex) {
-                    return true;
-                }
-                else {
-                    playedCard = card;
-                    return false;
-                }
-            });
-            console.log("[dropCard] Client:", clientPlaying, "play", playedCard, "card in game:", gameId);
-
-            let pile = game.state.pile;
-            let pileEmpty = pile.length != 0 ? false : true;
-            let pileValue;
-            if(!pileEmpty) {
-                pileValue = pile[pile.length - 1].card.value;
+        let gameState = game.state;
+        let clientPlayingCards = gameState.clientsCards[clientPlaying]
+        let playedCard;
+        // TODO: Add from what cards group was dropped
+        clientPlayingCards.hand = clientPlayingCards.hand.filter(card => { 
+            if(card.index !== cardIndex) {
+                return true;
             }
-            let cardValue = playedCard.card.value;
+            else {
+                playedCard = card;
+                return false;
+            }
+        });
+        
+        // console.log("Cards in hand:", clientPlayingCards.hand.length);
+        if(checkCanDropCard(playedCard, gameState)) {
+            console.log("[dropCard]", playedCard);
+            let pile = gameState.pile;
+            pile.push(playedCard);
+            gameState.stackedPile = stackedPileCount(pile);
+            // console.log("game pile:", game.state.pile);
+            let clients = game.clients;
+            if(gameState.stackedPile >= 4) {
+                discardPile(gameState, clients);
+            }
+            applyEffectToDesk(playedCard, gameState, clients);
+            for(const clientId in clients) {
+                let clientState = makeClientState(gameState, clientId);
+                let payload = {
+                    gameId: game.gameId,
+                    clientPlaying: clientPlaying,
+                    droppedCard: cardIndex,
+                    clientState: clientState
+                }
+                clientsHash[clientId].emit("dropCard", payload);
+            }
 
-            // console.log("Cards in hand:", clientCards.hand.length);
 
-            if(pileEmpty || cardValue >= pileValue || cardValue == 0 || cardValue == -1) {
-                pile.push(playedCard);
-                gameState.stackedPile = stackedPileCount(pile);
-                // console.log("game pile:", game.state.pile);
-                let clients = game.clients;
+            // console.log(gameState);
+            // console.log(clientPlayingCards.hand);
+
+            if(clientPlayingCards.hand.length < 3 && game.state.desk.length > 0) {
+                let topCard = JSON.parse(JSON.stringify(game.state.top));
+                clientPlayingCards.hand.push(topCard);
+
+                let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
+                gameState.top = { index: newId(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
+
+                let payLoad = {
+                    gameId: game.gameId,
+                    clientId: clientPlaying,
+                    pickUpCard: topCard,
+                    deskCount: gameState.desk.length
+                };
+
+                console.log("[pickUpCard]", topCard);
+                
                 for(const clientId in clients) {
-                    let clientState = makeClientState(game.state, clientId);
-                    let payload = {
-                        gameId: game.gameId,
-                        clientPlaying: clientPlaying,
-                        droppedCard: cardIndex,
-                        clientState: clientState
-                    }
-                    clientsHash[clientId].emit("dropCard", payload);
-                }
-
-                console.log(clientCards.hand);
-
-                if(gameState.stackedPile >= 4 || cardValue == 9) {
-                    gameState.discarded.push([...gameState.pile]);
-                    gameState.pile = [];
-                    gameState.stackedPile = 0;
-                    for(clientId in clients) {
-                        let payLoad = {
-
-                        };
-                        clientsHash[clientId].emit("discardPile", payLoad);
-                    }
-
-                    console.log("pile", gameState.pile);
-                    console.log("discarted", gameState.discarded);
-                }
-    
-                if(clientCards.hand.length < 3 && game.state.desk.length > 0) {
-                    let topCard = JSON.parse(JSON.stringify(game.state.top));
-                    clientCards.hand.push(topCard);
-    
-                    let newTopIndex = Math.floor(Math.random() * gameState.desk.length);
-                    gameState.top = { index: newId(), card: gameState.desk.splice(newTopIndex, 1)[0] }; 
-    
-                    let payLoad = {
-                        gameId: game.gameId,
-                        clientId: clientPlaying,
-                        pickUpCard: topCard,
-                        deskCount: gameState.desk.length
-                    };
-    
-                    console.log("[pickUpCard] Client:", clientPlaying, "pick up", topCard, "card in game:", gameId);
-                    
-                    for(const clientId in clients) {
-                        clientsHash[clientId].emit("pickUpCard", payLoad);
-                    }
+                    clientsHash[clientId].emit("pickUpCard", payLoad);
                 }
             }
         }
+        
     });
 
     socket.on('finishTurn', (data) => {
@@ -173,7 +155,13 @@ io.on('connection', (socket) => {
             if(clientTurn && clientTurn === game.state.actualTurn) {
                 let turn = game.state.actualTurn
                 let numClients = Object.keys(game.clients).length; 
-                turn = turn + 1 <= numClients ? turn + 1 : 1;
+                let skipTurns = game.state.effects.skipTurns;
+                if(game.state.direction > 0) {
+                    turn = turn + 1 <= numClients ? turn + 1 : 1;
+                }
+                else {
+                    turn = turn - 1 > 0 ? turn - 1 : numClients;
+                }
                 game.state.actualTurn = turn;
                 game.state.turnsCount++;
                 
@@ -267,20 +255,24 @@ let makeServerState = (clients) => {
     
     let gameState = {
         desk: desk.desk,
+        clientsCards: clientsCards,
         pile: [],
         discarded: [],
+        direction: 1,
         actualTurn: actualTurn,
         turnsCount: 0,
-        clientsCards: clientsCards,
-        stackedPile: 0
+        stackedPile: 0,
+        effects: {
+            minor: false,
+            skipTurns: 0
+        }
     };
 
     let pileIndex = Math.floor(Math.random() * gameState.desk.length);
     gameState.pile.push({ index: newId(), card: gameState.desk.splice(pileIndex, 1)[0] });
+    gameState.stackedPile = stackedPileCount(gameState.pile);
     let topIndex = Math.floor(Math.random() * gameState.desk.length);
     gameState.top = { index: newId(), card: gameState.desk.splice(topIndex, 1)[0] }; 
-
-    gameState.stackedPile = stackedPileCount(gameState.pile);
 
     return gameState;
 }
@@ -310,10 +302,13 @@ let makeClientState = (gameState, clientId) => {
         clientCards: clientCards,
         opponentsCards: opponentsCards,
         pile: gameState.pile,
+        discarded: gameState.discarded,
+        direction: gameState.direction,
         actualTurn: gameState.actualTurn,
         turnsCount: gameState.turnsCount,
         deskCount: gameState.desk.length,
-        stackedPile: gameState.stackedPile
+        stackedPile: gameState.stackedPile,
+        effects: gameState.effects
     };
 
     return clientState;
@@ -329,11 +324,71 @@ let stackedPileCount = (pile) => {
     for(let i = pileLookUp.length - 1; i >= 0; i--) {
         if(pileLookUp[i].card.value == actualValue) {
             repeatedCount++;
-            actualTurn = pileLookUp[i].card.value;
+            actualValue = pileLookUp[i].card.value;
         }
     }
 
     return repeatedCount;
+}
+
+let checkCanDropCard = (playedCard, gameState) => {
+    console.log("played card", playedCard);
+    let pile = gameState.pile;
+    let effects = gameState.effects;
+    let pileEmpty = pile.length ? false : true;
+    let pileValue = !pileEmpty ? pile[pile.length - 1].card.value : null;
+    let cardValue = playedCard.card.value;
+
+    if(!pileEmpty) 
+        if(![-1, 1, 2, 9].includes(cardValue)) 
+            if((effects.minorEffect && cardValue > pileValue) || (!effects.minorEffect && cardValue < pileValue))
+                return false;
+
+    return true;
+}
+
+let applyEffectToDesk = (playedCard, gameState, clients) => {
+    let effects = gameState.effects;
+    let cardValue = playedCard.card.value;
+
+    switch(cardValue) {
+        case 2:
+            effects.transparent = true;
+            break;
+        case 6:
+            effects.minor = true;
+            break;
+        case 7:
+            effects.skipTurns++;
+            break;
+        case 9:
+            discardPile(gameState, clients);
+            break;
+        case 10:
+            gameState.direction *= -1;
+            break;
+        case -1:
+             
+            break;
+    }
+}
+
+let resetDeskEffect = (gameState) => {
+    let effects = gameState.effects;
+    effects.minor = false;
+    effects.skipTurns = 0;
+    effects.transparent = false;
+}
+
+let discardPile = (gameState, clients) => {
+    gameState.discarded.push([...gameState.pile]);
+    gameState.pile = [];
+    gameState.stackedPile = 0;
+    console.log("[discardPile]");
+    for(clientId in clients) {
+        let payLoad = {};
+        clientsHash[clientId].emit("discardPile", payLoad);
+    }
 }
 
 let newId = () => {
