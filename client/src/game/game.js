@@ -46,6 +46,10 @@ export default class Game extends Phaser.Scene {
                     name.destroy();
                 });
             }
+            if(this.gameIdLabel) {
+                this.gameIdLabel.node.remove();
+                this.gameIdLabel.destroy();
+            }
             this.drawLobby();
         });
 
@@ -57,6 +61,10 @@ export default class Game extends Phaser.Scene {
             this.playersNames.forEach(name => {
                 name.destroy();
             });
+            if(this.gameIdLabel) {
+                this.gameIdLabel.node.remove();
+                this.gameIdLabel.destroy();
+            }
             this.createGame(data.clientState);
         });
 
@@ -171,35 +179,53 @@ export default class Game extends Phaser.Scene {
         //Socket connections
         this.socketConnections();
 
+        this.cameras.main.setBackgroundColor("#25282D");
         // UI elements
-        this.createGameButton = this.add.text(100, 100, ['Crear partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
-        this.createGameButton.on('pointerdown', () => {
-            let payLoad = {
-                clientId: this.clientId
-            }
-            console.log(payLoad);
-            this.socket.emit('createGame', payLoad);
-        });
+        let nameInputConfig = {
+            align: "left",
+            placeholder: "Nombre se usuario",
+            fontSize: "40px",
+            border: 1,
+            borderColor: 'white',
+        };
+        let nameInputX = this.canvas.width / 2;
+        let nameInputY = 200;
+        this.nameInput = this.add.rexInputText(nameInputX, nameInputY, 600, 100, nameInputConfig)
 
-        this.joinGameButton = this.add.text(300, 100, ['Unirse a una partida']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
         let inputConfig = {
             align: "left",
             placeholder: "Código de la partida",
-            backgraundColor: "red",
+            fontSize: "40px",
             border: 1,
-            borderColor: 'yellow',
+            borderColor: 'white',
         };
-        this.inputText = new InputText(this, 350, 50, 300, 20, inputConfig);
-        this.add.existing(this.inputText);
+        let gameInputX = this.canvas.width / 2;
+        let gameInputY = 350;
+        this.gameInput = this.add.rexInputText(gameInputX, gameInputY, 600, 100, inputConfig);
 
-        this.joinGameButton.on('pointerdown', () => {
-            if(this.inputText.text != "") {
-                console.log("text: ", this.inputText.text);
-                let gameId = this.inputText.text;
-
+        this.createGameButton = this.add.text(230, 600, ['Crear partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
+        this.createGameButton.on('pointerdown', () => {
+            if(this.nameInput.text != "") {
+            let clientName = this.nameInput.text;
                 let payLoad = {
                     clientId: this.clientId,
-                    gameId: gameId
+                    clientName: clientName
+                }
+                console.log(payLoad);
+                this.socket.emit('createGame', payLoad);
+            }
+        });
+        
+        this.joinGameButton = this.add.text(650, 600, ['Unirse a una partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
+        this.joinGameButton.on('pointerdown', () => {
+            if(this.gameInput.text != "" && this.nameInput.text != "") {
+                let gameId = this.gameInput.text;
+                let clientName = this.nameInput.text;
+
+                let payLoad = {
+                    gameId: gameId,
+                    clientId: this.clientId,
+                    clientName: clientName
                 }
                 this.socket.emit('joinGame', payLoad);
             }
@@ -465,13 +491,14 @@ export default class Game extends Phaser.Scene {
     drawLobby() {
         if(this.createGameButton) this.createGameButton.destroy();
         if(this.joinGameButton) this.joinGameButton.destroy()
-        if(this.inputText) this.inputText.destroy();
+        if(this.nameInput) this.nameInput.destroy();
+        if(this.gameInput) this.gameInput.destroy();
 
         // console.log("Client id: " + this.clientId);
         // console.log("Host id: " + this.game.hostId);
 
         if(this.clientId == this.game.hostId) {
-            this.dealText = this.add.text(50, 50, ['Repartir']).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#00ffff').setInteractive();
+            this.dealText = this.add.text(50, 50, ['Empezar partida']).setFontSize(32).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
             this.dealText.on('pointerdown', () => {
                 let payLoad = {
                     gameId: this.game.gameId 
@@ -484,10 +511,18 @@ export default class Game extends Phaser.Scene {
         let players = this.game.clients;
         let i = 0;
         for(const id in players) {
-            let playerName = "Player " + id + " Turn: " + players[id].turn;
-            this.playersNames.push(this.add.text(200, 50 + (i * 25), [playerName]).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff'));
+            let playerName = players[id].name;
+            this.playersNames.push(this.add.text(350, 50 + (i * 25), [playerName]).setFontSize(24).setFontFamily('Trebuchet MS').setColor('#ffffff'));
             i++
         }
+
+        let gameIdText = "Código partida: " + this.game.gameId;
+        let gameIdTextElement = document.createElement("p");
+        gameIdTextElement.innerText = gameIdText;
+        gameIdTextElement.style.color = 'white'; 
+        gameIdTextElement.style.fontSize = '24px'; 
+        gameIdTextElement.style.fontFamily = 'Trebuchet MS'; 
+        this.gameIdLabel = this.add.dom(300, 500, gameIdTextElement);
     }
 
     makePlayerCardsObjects() {

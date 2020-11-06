@@ -2,7 +2,6 @@ const app = require('express')();
 const server = app.listen(3000);
 const io = require('socket.io').listen(server);
 
-const { json } = require('express');
 const deskData = require('./deskData');
 
 const clientsHash = {};
@@ -14,10 +13,11 @@ io.on('connection', (socket) => {
     socket.emit('newClient', { clientId: socket.id });
     
     socket.on('createGame', (data) => {
-        let gameId = newId();
+        let gameId = newGameId();
         let clientId = data.clientId;
+        let clientName = data.clientName;
         let clients = {};
-        clients[clientId] = { turn: 1 };
+        clients[clientId] = { turn: 1, name: clientName };
         gamesHash[gameId] = {
             gameId: gameId,
             hostId: clientId,
@@ -35,11 +35,12 @@ io.on('connection', (socket) => {
     socket.on('joinGame', (data) => {
         let gameId = data.gameId;
         let clientId = data.clientId;
+        let clientName = data.clientName;
         if(gamesHash.hasOwnProperty(gameId)) {
             let game = gamesHash[gameId];
             if(clientsHash.hasOwnProperty(clientId)) {
                 let turn = Object.keys(game.clients).length + 1;
-                game.clients[clientId] = { turn: turn };
+                game.clients[clientId] = { turn: turn, name: clientName };
                 console.log("[joinGame] Client:", clientId, "joined to game:", gameId);
                 let payLoad = {
                     game: game
@@ -397,3 +398,10 @@ let newId = () => {
     return v.toString(16);
   });
 }
+
+let newGameId = () => {
+    return 'xxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    }).toUpperCase();
+  }
