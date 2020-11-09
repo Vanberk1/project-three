@@ -1,3 +1,11 @@
+const types = {
+    0: 'club',
+    1: 'diamond',
+    2: 'heart',
+    3: 'spade',
+    4: 'joker'
+};
+
 export default class Card {
     constructor(index, data) {
         this.index = index;
@@ -5,20 +13,13 @@ export default class Card {
         this.type = data ? data.type : null;
         this.value = data ? data.value : null
 
-        this.types = {
-            0: 'club',
-            1: 'diamond',
-            2: 'heart',
-            3: 'spade',
-            4: 'joker'
-        };
     }
 
     makeCardObject(scene, x, y, interactive) {
         if(this.isLookingUp) {
             if(this.value != -1) {
                 let value = this.value == 13 ? 0 : this.value;
-                let texture = this.types[this.type];
+                let texture = types[this.type];
                 this.cardObject = scene.add.image(x, y, texture, value);
             }
             else {

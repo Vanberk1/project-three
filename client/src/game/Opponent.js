@@ -1,7 +1,8 @@
 import Card from "./Card";
 
 export default class Opponent {
-    constructor(turn, handState) {
+    constructor(turn, name, handState) {
+        this.name = name;
         this.turn = turn;
         this.hand = handState.hand;
         this.lookDown = handState.lookDown;

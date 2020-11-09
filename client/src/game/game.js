@@ -74,33 +74,11 @@ export default class Game extends Phaser.Scene {
             let effects = data.clientState.effects;
             let clientId = data.clientPlaying;
             this.game.state.pile.pileData = pile;
-            this.game.state.effects = effects;
             this.game.state.stackedPile = data.clientState.stackedPile;
             this.game.state.direction = data.clientState.direction;
 
-            if(effects.minor) {
-                this.effectLabel.text = "Menor";
-                this.effectLabel.visible = true;
-            }
-            else if(effects.skipTurns) {
-                this.effectLabel.text = "Saltar " + effects.skipTurns + " turnos"; 
-                this.effectLabel.visible = true;
-            }
-            else {
-                this.effectLabel.text = "";
-                this.effectLabel.visible = false;
-            }
-
             if(pile.length) {
                 let cardDropped = pile[pile.length - 1];
-                if(this.game.state.direction > 0) {
-                    this.directionLabel1.text = "->";
-                    this.directionLabel2.text = "->";
-                }
-                else {
-                    this.directionLabel1.text = "<-";
-                    this.directionLabel2.text = "<-";
-                }
                 this.player.cardPlayed = true;
                 this.dropCard(clientId, data.droppedCard, cardDropped)
             }
@@ -155,10 +133,45 @@ export default class Game extends Phaser.Scene {
 
         this.socket.on('discardPile', (data) => {
             console.log("[discardPile]", data);
-            this.game.state.pile.topCard.cardObject.destroy();
-            this.game.state.pile.topCard = null;
-            this.game.state.pile.pileData = [];
-            this.pileCountLabel.visible = false;
+            setTimeout(() => {
+                this.game.state.pile.topCard.cardObject.destroy();
+                this.game.state.pile.topCard = null;
+                this.game.state.pile.pileData = [];
+                this.pileCountLabel.visible = false;
+            }, 1000);
+        });
+
+        this.socket.on('applyEffects', (data) => {
+            console.log("[pplyEffects]", data);
+            let direction = data.direction;
+            let effects = data.effects;
+            this.game.state.effects = effects;
+
+            if(effects.minor) {
+                this.effectLabel.text = "Menor";
+                this.effectLabel.visible = true;
+            }
+            else if(effects.transparent) {
+                this.effectLabel.text = "Transparente";
+                this.effectLabel.visible = true;
+            }
+            else if(effects.skipTurns) {
+                this.effectLabel.text = "Saltar " + effects.skipTurns + " turnos"; 
+                this.effectLabel.visible = true;
+            }
+            else {
+                this.effectLabel.text = "";
+                this.effectLabel.visible = false;
+            }
+
+            if(direction > 0) {
+                this.directionLabel1.text = "->";
+                this.directionLabel2.text = "->";
+            }
+            else {
+                this.directionLabel1.text = "<-";
+                this.directionLabel2.text = "<-";
+            }
         });
     }
 
@@ -171,6 +184,7 @@ export default class Game extends Phaser.Scene {
         this.load.image("red-card-back", "src/assets/red-card-back.png");
         this.load.image("blue-joker", "src/assets/blue-joker.png");
         this.load.image("red-joker", "src/assets/red-joker.png");
+        this.load.image("logo", "src/assets/logo.png");
 
         this.canvas = this.sys.game.canvas;
     }
@@ -179,8 +193,11 @@ export default class Game extends Phaser.Scene {
         //Socket connections
         this.socketConnections();
 
-        this.cameras.main.setBackgroundColor("#25282D");
         // UI elements
+        this.cameras.main.setBackgroundColor("#25282D");
+
+        this.logoIMG = this.add.image(this.canvas.width / 2, 200, "logo");
+
         let nameInputConfig = {
             align: "left",
             placeholder: "Nombre se usuario",
@@ -189,7 +206,7 @@ export default class Game extends Phaser.Scene {
             borderColor: 'white',
         };
         let nameInputX = this.canvas.width / 2;
-        let nameInputY = 200;
+        let nameInputY = 450;
         this.nameInput = this.add.rexInputText(nameInputX, nameInputY, 600, 100, nameInputConfig)
 
         let inputConfig = {
@@ -200,10 +217,10 @@ export default class Game extends Phaser.Scene {
             borderColor: 'white',
         };
         let gameInputX = this.canvas.width / 2;
-        let gameInputY = 350;
+        let gameInputY = 600;
         this.gameInput = this.add.rexInputText(gameInputX, gameInputY, 600, 100, inputConfig);
 
-        this.createGameButton = this.add.text(230, 600, ['Crear partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
+        this.createGameButton = this.add.text(230, 700, ['Crear partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
         this.createGameButton.on('pointerdown', () => {
             if(this.nameInput.text != "") {
             let clientName = this.nameInput.text;
@@ -216,7 +233,7 @@ export default class Game extends Phaser.Scene {
             }
         });
         
-        this.joinGameButton = this.add.text(650, 600, ['Unirse a una partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
+        this.joinGameButton = this.add.text(650, 700, ['Unirse a una partida']).setFontSize(40).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
         this.joinGameButton.on('pointerdown', () => {
             if(this.gameInput.text != "" && this.nameInput.text != "") {
                 let gameId = this.gameInput.text;
@@ -291,7 +308,7 @@ export default class Game extends Phaser.Scene {
     createGame(gameState) {
         // Create player state
         let playerTurn = gameState.clientCards.turn;
-        // console.log(playerTurn)
+        let playerName = gameState.clientCards.name;
         let playerCardsData = gameState.clientCards;
         let playerCards = {
             hand: {},
@@ -314,7 +331,7 @@ export default class Game extends Phaser.Scene {
             playerCards.lookDown[cardData.index] = card;
         });
 
-        this.player = new Player(playerTurn, playerCards);
+        this.player = new Player(playerTurn, playerName, playerCards);
         if(playerTurn == gameState.actualTurn) {
             this.player.inTurn = true;
         }
@@ -322,6 +339,7 @@ export default class Game extends Phaser.Scene {
         // Create opponents states
         let opponentsCards = gameState.opponentsCards;
         opponentsCards.forEach(opponent => {
+            let name = opponent.name;
             let turn = opponent.turn;
             let opponentCards = {
                 hand: {},
@@ -341,7 +359,7 @@ export default class Game extends Phaser.Scene {
                 opponentCards.lookUp[cardData.index] = new Card(cardData.index, { type: cardData.card.type, value: cardData.card.value });;
             });
 
-            this.opponents.push(new Opponent(turn, opponentCards));
+            this.opponents.push(new Opponent(turn, name, opponentCards));
         });
 
         this.opponents = this.sortOpponents(this.player.turn, this.opponents);
@@ -493,6 +511,7 @@ export default class Game extends Phaser.Scene {
         if(this.joinGameButton) this.joinGameButton.destroy()
         if(this.nameInput) this.nameInput.destroy();
         if(this.gameInput) this.gameInput.destroy();
+        if(this.logoIMG) this.logoIMG.destroy();
 
         // console.log("Client id: " + this.clientId);
         // console.log("Host id: " + this.game.hostId);
@@ -527,6 +546,7 @@ export default class Game extends Phaser.Scene {
 
     makePlayerCardsObjects() {
         this.player.makeCardsObjects(this);
+        this.add.text(730, 600, this.player.name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
     }
 
     makeOpponentsCardsObjects() {
@@ -534,15 +554,21 @@ export default class Game extends Phaser.Scene {
 
         if(opponents.length == 1) {
             opponents[0].makeCardsObjects(this, "top");
+            this.add.text(330, 180, opponents[0].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
         }
         else if(opponents.length == 2) {
             opponents[0].makeCardsObjects(this, "right");
+            this.add.text(950, 250, opponents[0].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
             opponents[1].makeCardsObjects(this, "left");
+            this.add.text(150, 550, opponents[1].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
         }
         else if(opponents.length == 3) {
             opponents[0].makeCardsObjects(this, "right");
+            this.add.text(950, 250, opponents[0].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
             opponents[1].makeCardsObjects(this, "top");
+            this.add.text(330, 180, opponents[1].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
             opponents[2].makeCardsObjects(this, "left");
+            this.add.text(150, 550, opponents[2].name).setFontSize(18).setFontFamily('Trebuchet MS').setColor('#ffffff');
         }
     }
 

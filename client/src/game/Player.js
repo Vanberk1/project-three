@@ -9,7 +9,8 @@ const types = {
 };
 
 export default class Player {
-    constructor(turn, handState) {
+    constructor(turn, name, handState) {
+        this.name = name;
         this.hand = handState.hand;
         this.lookUp = handState.lookUp;
         this.lookDown = handState.lookDown;

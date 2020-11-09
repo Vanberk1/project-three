@@ -76,7 +76,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('dropCard', (data) => {
-        console.log("dropCard");
+        // console.log("dropCard");
         let clientPlaying = data.clientId;
         let gameId = data.gameId;
         let cardIndex = data.cardIndex;
@@ -103,10 +103,6 @@ io.on('connection', (socket) => {
             gameState.stackedPile = stackedPileCount(pile);
             // console.log("game pile:", game.state.pile);
             let clients = game.clients;
-            if(gameState.stackedPile >= 4) {
-                discardPile(gameState, clients);
-            }
-            applyEffectToDesk(playedCard, gameState, clients);
             for(const clientId in clients) {
                 let clientState = makeClientState(gameState, clientId);
                 let payload = {
@@ -117,7 +113,10 @@ io.on('connection', (socket) => {
                 }
                 clientsHash[clientId].emit("dropCard", payload);
             }
-
+            if(gameState.stackedPile >= 4) {
+                discardPile(gameState, clients);
+            }
+            applyEffectToDesk(playedCard, gameState, clients);
 
             // console.log(gameState);
             // console.log(clientPlayingCards.hand);
@@ -222,6 +221,7 @@ let makeServerState = (clients) => {
     for(const clientId in clients) { 
         turns.push(clients[clientId].turn);
         clientsCards[clientId] = {
+                name: clients[clientId].name,
                 turn: clients[clientId].turn,
                 hand: [],
                 lookDown: [],
@@ -264,6 +264,7 @@ let makeServerState = (clients) => {
         turnsCount: 0,
         stackedPile: 0,
         effects: {
+            transparent: false,
             minor: false,
             skipTurns: 0
         }
@@ -291,6 +292,7 @@ let makeClientState = (gameState, clientId) => {
                 return card.index;
             });
             opponentsCards.push({
+                name: allClientCards[id].name,
                 turn: allClientCards[id].turn,
                 opponentHandIndexes: hand,
                 opponentLookDownIndexes: lookDown,
@@ -333,7 +335,7 @@ let stackedPileCount = (pile) => {
 }
 
 let checkCanDropCard = (playedCard, gameState) => {
-    console.log("played card", playedCard);
+    // console.log("played card", playedCard);
     let pile = gameState.pile;
     let effects = gameState.effects;
     let pileEmpty = pile.length ? false : true;
@@ -345,6 +347,8 @@ let checkCanDropCard = (playedCard, gameState) => {
             if((effects.minorEffect && cardValue > pileValue) || (!effects.minorEffect && cardValue < pileValue))
                 return false;
 
+
+    resetDeskEffect(gameState);
     return true;
 }
 
@@ -363,31 +367,41 @@ let applyEffectToDesk = (playedCard, gameState, clients) => {
             effects.skipTurns++;
             break;
         case 9:
-            discardPile(gameState, clients);
+            discardPile(gameState, clients, playedCard);
             break;
         case 10:
             gameState.direction *= -1;
             break;
         case -1:
-             
+             //TODO: Joker effect
             break;
+    }
+
+    for(clientId in clients) {
+        let payLoad = {
+            direction: gameState.direction,
+            effects: gameState.effects
+        };
+        clientsHash[clientId].emit("applyEffects", payLoad);
     }
 }
 
 let resetDeskEffect = (gameState) => {
     let effects = gameState.effects;
+    effects.transparent = false;
     effects.minor = false;
     effects.skipTurns = 0;
-    effects.transparent = false;
 }
 
-let discardPile = (gameState, clients) => {
+let discardPile = (gameState, clients, card) => {
     gameState.discarded.push([...gameState.pile]);
     gameState.pile = [];
     gameState.stackedPile = 0;
     console.log("[discardPile]");
     for(clientId in clients) {
-        let payLoad = {};
+        let payLoad = {
+            cardDropped: card
+        };
         clientsHash[clientId].emit("discardPile", payLoad);
     }
 }
