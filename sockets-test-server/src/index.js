@@ -76,7 +76,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('dropCard', (data) => {
-        // console.log("dropCard");
+        console.log("dropCard data", data);
         let clientPlaying = data.clientId;
         let gameId = data.gameId;
         let cardIndex = data.cardIndex;
@@ -94,15 +94,16 @@ io.on('connection', (socket) => {
                 return false;
             }
         });
-        
+        console.log("played card", playedCard);
         // console.log("Cards in hand:", clientPlayingCards.hand.length);
         if(checkCanDropCard(playedCard, gameState)) {
             console.log("[dropCard]", playedCard);
+            let clients = game.clients;
             let pile = gameState.pile;
+            resetEffects(gameState, clients);
             pile.push(playedCard);
             gameState.stackedPile = stackedPileCount(pile);
             // console.log("game pile:", game.state.pile);
-            let clients = game.clients;
             for(const clientId in clients) {
                 let clientState = makeClientState(gameState, clientId);
                 let payload = {
@@ -156,12 +157,18 @@ io.on('connection', (socket) => {
                 let turn = game.state.actualTurn
                 let numClients = Object.keys(game.clients).length; 
                 let skipTurns = game.state.effects.skipTurns;
+                let skip = skipTurns >= 1 ? true : false;
                 if(game.state.direction > 0) {
-                    turn = turn + 1 <= numClients ? turn + 1 : 1;
+                    for(let i = 0; i <= skipTurns; i++) {
+                        turn = turn + 1 <= numClients ? turn + 1 : 1;
+                    }
                 }
                 else {
-                    turn = turn - 1 > 0 ? turn - 1 : numClients;
+                    for(let i = 0; i <= skipTurns; i++) {
+                        turn = turn - 1 > 0 ? turn - 1 : numClients;
+                    }
                 }
+                game.state.effects.skipTurns = 0;
                 game.state.actualTurn = turn;
                 game.state.turnsCount++;
                 
@@ -169,7 +176,8 @@ io.on('connection', (socket) => {
 
                 let payLoad = {
                     actualTurn: game.state.actualTurn,
-                    turnsCount: game.state.turnsCount
+                    turnsCount: game.state.turnsCount,
+                    skipTurns: skip
                 };
 
                 let clients = game.clients;
@@ -324,10 +332,14 @@ let stackedPileCount = (pile) => {
     // console.log("pile look up", pileLookUp);
     // console.log("pile", pile);
     let actualValue = pileLookUp[pileLookUp.length - 1].card.value;
+    let diferentCard = false;
     for(let i = pileLookUp.length - 1; i >= 0; i--) {
-        if(pileLookUp[i].card.value == actualValue) {
+        if(pileLookUp[i].card.value == actualValue && !diferentCard) {
             repeatedCount++;
             actualValue = pileLookUp[i].card.value;
+        }
+        else {
+            diferentCard = true;
         }
     }
 
@@ -342,13 +354,13 @@ let checkCanDropCard = (playedCard, gameState) => {
     let pileValue = !pileEmpty ? pile[pile.length - 1].card.value : null;
     let cardValue = playedCard.card.value;
 
-    if(!pileEmpty) 
-        if(![-1, 1, 2, 9].includes(cardValue)) 
-            if((effects.minorEffect && cardValue > pileValue) || (!effects.minorEffect && cardValue < pileValue))
+    if(!pileEmpty) {
+        if(![-1, 1, 2, 9].includes(cardValue)) {
+            if((effects.minor && cardValue > pileValue) || (!effects.minor && cardValue < pileValue)) {
                 return false;
-
-
-    resetDeskEffect(gameState);
+            }
+        }
+    }
     return true;
 }
 
@@ -377,21 +389,28 @@ let applyEffectToDesk = (playedCard, gameState, clients) => {
             break;
     }
 
+    let payLoad = {
+        direction: gameState.direction,
+        effects: gameState.effects
+    };
     for(clientId in clients) {
-        let payLoad = {
-            direction: gameState.direction,
-            effects: gameState.effects
-        };
         clientsHash[clientId].emit("applyEffects", payLoad);
     }
 }
 
-let resetDeskEffect = (gameState) => {
+let resetEffects = (gameState, clients) => {
     let effects = gameState.effects;
+
     effects.transparent = false;
     effects.minor = false;
-    effects.skipTurns = 0;
-}
+
+    let payLoad = {
+        effects: gameState.effects
+    };
+    for(clientId in clients) {
+        clientsHash[clientId].emit("removeEffects", payLoad);
+    }
+};
 
 let discardPile = (gameState, clients, card) => {
     gameState.discarded.push([...gameState.pile]);

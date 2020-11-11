@@ -105,8 +105,14 @@ export default class Game extends Phaser.Scene {
 
         this.socket.on('changeTurn', (data) => {
             this.actualTurn = data.actualTurn;
-            this.turnsCount = data.turnsCount;  
+            this.turnsCount = data.turnsCount;
             console.log("[changeTurn]", data);
+
+            if(data.skipTurns) {
+                this.effectLabel.text = "";
+                this.effectLabel.visible = false;
+            }
+
             if(this.player.turn == data.actualTurn) {
                 this.player.inTurn = true;
                 this.player.cardPlayed = false;
@@ -129,6 +135,8 @@ export default class Game extends Phaser.Scene {
             let clientId = data.clientId;
             let newCards = data.newCards;
             this.pickUpPile(clientId, newCards);
+            this.effectLabel.text = "";
+            this.effectLabel.visible = false;
         });
 
         this.socket.on('discardPile', (data) => {
@@ -139,10 +147,12 @@ export default class Game extends Phaser.Scene {
                 this.game.state.pile.pileData = [];
                 this.pileCountLabel.visible = false;
             }, 1000);
+            this.effectLabel.text = "";
+            this.effectLabel.visible = false;
         });
 
         this.socket.on('applyEffects', (data) => {
-            console.log("[pplyEffects]", data);
+            console.log("[applyEffects]", data);
             let direction = data.direction;
             let effects = data.effects;
             this.game.state.effects = effects;
@@ -173,7 +183,16 @@ export default class Game extends Phaser.Scene {
                 this.directionLabel2.text = "<-";
             }
         });
-    }
+
+        this.socket.on('resetEffects', (data) => {
+            console.log("[resetEffects]", data);
+            let effects = data.effects;
+            this.game.state.effects = effects;
+
+            this.effectLabel.text = "";
+            this.effectLabel.visible = false;
+        });
+    } 
 
     preload() {
         this.load.spritesheet("heart", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
@@ -272,12 +291,13 @@ export default class Game extends Phaser.Scene {
             }
         });
         
-        this.pileDropZone = this.add.zone(this.canvas.width / 2, this.canvas.height / 2, 100, 130).setRectangleDropZone(100, 130);
+        this.pileDropZone = this.add.zone(this.canvas.width / 2, this.canvas.height / 2, 100, 130);
+        this.pileDropZone.setRectangleDropZone(100, 130);
         this.input.on('drop', (pointer, gameObject, dropZone) => {
             let cardIndex = gameObject.getData("index");
             // TODO: Add from what cards group was dropped
             let canPlay = this.checkPlayerCanPlay(cardIndex);
-            console.log(canPlay);
+            console.log("can play:", canPlay);
             if(this.player.inTurn && canPlay) {
                 // console.log("Card index(drop):", cardIndex);
                 let droppedCard = this.player.hand[cardIndex];
@@ -442,7 +462,9 @@ export default class Game extends Phaser.Scene {
 
     pickUpPile(clientId, newCards) {
         console.log("pickUpPile");
-        this.game.state.pile.topCard.cardObject.destroy();
+        if(this.game.state.pile.topCard.cardObject) {
+            this.game.state.pile.topCard.cardObject.destroy();
+        }
         this.game.state.pile.topCard = null;
         this.game.state.pile.pileData = [];
         newCards.forEach(cardData => {
@@ -461,7 +483,7 @@ export default class Game extends Phaser.Scene {
         // console.log("card value:", cardValue);
         // console.log("pile value:", pileValue);
         // console.log("card played:", this.player.cardPlayed);
-        // console.log("minor:", effects.minor);
+        console.log("minor:", effects.minor);
         
         if(!this.player.cardPlayed) {
             if(![-1, 1, 2, 9].includes(cardValue)){
