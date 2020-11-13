@@ -162,7 +162,15 @@ export default class Game extends Phaser.Scene {
                 this.effectLabel.visible = true;
             }
             else if(effects.transparent) {
-                this.effectLabel.text = "Transparente";
+                let pileValue;
+                let pile = this.game.state.pile.pileData;
+                for(let i = pile.length - 1; i >= 0; i--) {
+                    if(pile[i].card.value != 2) {
+                        pileValue = pile[i].card.value;
+                        break;
+                    }
+                }
+                this.effectLabel.text = "Transparente:\n" + (pileValue + 1);
                 this.effectLabel.visible = true;
             }
             else if(effects.skipTurns) {
@@ -479,11 +487,20 @@ export default class Game extends Phaser.Scene {
         let pileValue = !pileEmpty ? pile[pile.length - 1].card.value : null;
         let cardValue = this.player.hand[cardIndex].value;
 
+        if(effects.transparent) {
+            for(let i = pile.length - 1; i >= 0; i--) {
+                if(pile[i].card.value != 2) {
+                    pileValue = pile[i].card.value;
+                    break;
+                }
+            }
+        }
+
         // console.log("pile empty:", pileEmpty);
         // console.log("card value:", cardValue);
         // console.log("pile value:", pileValue);
         // console.log("card played:", this.player.cardPlayed);
-        console.log("minor:", effects.minor);
+        // console.log("minor:", effects.minor);
         
         if(!this.player.cardPlayed) {
             if(![-1, 1, 2, 9].includes(cardValue)){

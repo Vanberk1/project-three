@@ -353,6 +353,14 @@ let checkCanDropCard = (playedCard, gameState) => {
     let pileEmpty = pile.length ? false : true;
     let pileValue = !pileEmpty ? pile[pile.length - 1].card.value : null;
     let cardValue = playedCard.card.value;
+    if(effects.transparent) {
+        for(let i = pile.length - 1; i >= 0; i--) {
+            if(pile[i].card.value != 2) {
+                pileValue = pile[i].card.value;
+                break;
+            }
+        }
+    }
 
     if(!pileEmpty) {
         if(![-1, 1, 2, 9].includes(cardValue)) {
