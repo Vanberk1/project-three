@@ -117,7 +117,15 @@ io.on('connection', (socket) => {
             if(gameState.stackedPile >= 4) {
                 discardPile(gameState, clients);
             }
-            applyEffectToDesk(playedCard, gameState, clients);
+
+            if(playedCard.card.value == -1) {
+                jokerEffect(gameState, clients);
+            }
+            else {
+                applyEffectToDesk(playedCard, gameState, clients);
+            }
+
+
 
             // console.log(gameState);
             // console.log(clientPlayingCards.hand);
@@ -150,9 +158,10 @@ io.on('connection', (socket) => {
         let gameId = data.gameId;
         let clientId = data.clientId;
         let game = gamesHash[gameId];
+        console.log("finish turn");
         if(game) {
             let clientTurn = game.clients[clientId].turn;
-            // console.log("client turn:", clientTurn, " actual turn:", game.state.actualTurn);
+            console.log("client turn:", clientTurn, " actual turn:", game.state.actualTurn);
             if(clientTurn && clientTurn === game.state.actualTurn) {
                 let turn = game.state.actualTurn
                 let numClients = Object.keys(game.clients).length; 
@@ -192,27 +201,30 @@ io.on('connection', (socket) => {
         let gameId = data.gameId;
         let clientId = data.clientId;
         let game = gamesHash[gameId];
-
+        console.log(game);
         if(game) {
-            let hand = game.state.clientsCards[clientId].hand;
-            // console.log("hand:", hand);
-            // console.log("pile:", game.state.pile);
+            let newCards = pickUpPile(game.state, clientId);
 
-            let newCards = [...game.state.pile];
-            game.state.clientsCards[clientId].hand = hand.concat(newCards);
-            game.state.pile = []
-            // console.log("hand:", hand);
-            // console.log("pile:", game.state.pile);
-            // console.log("new hand:", game.state.clientsCards[clientId].hand);
+            let numClients = Object.keys(game.clients).length; 
+            let turn = game.state.actualTurn;
+            if(game.state.direction > 0) {
+                turn = turn - 1 > 0 ? turn - 1 : numClients;
+            }
+            else {
+                turn = turn + 1 <= numClients ? turn + 1 : 1;
+            }
+            game.state.actualTurn = turn;
+
+            console.log("[pickUpPile] client: " + clientId + " actual turn: " + turn);
 
             for(const id in game.clients) {
                 let payLoad = {
                     clientId: clientId,
-                    newCards: newCards
+                    newCards: newCards,
+                    turn: turn
                 };
                 clientsHash[id].emit('pickUpPile', payLoad);
             }
-
         }
     });
 
@@ -221,6 +233,14 @@ io.on('connection', (socket) => {
         delete clientsHash[socket.id];
     });
 });
+
+let pickUpPile = (gameState, clientId) => {
+    let hand = gameState.clientsCards[clientId].hand;
+    let newCards = [...gameState.pile].filter(card => card.card.value != -1);
+    gameState.clientsCards[clientId].hand = hand.concat(newCards);
+    gameState.pile = []
+    return newCards;
+}
 
 let makeServerState = (clients) => {
     let desk = JSON.parse(JSON.stringify(deskData));
@@ -392,9 +412,6 @@ let applyEffectToDesk = (playedCard, gameState, clients) => {
         case 10:
             gameState.direction *= -1;
             break;
-        case -1:
-             //TODO: Joker effect
-            break;
     }
 
     let payLoad = {
@@ -403,6 +420,41 @@ let applyEffectToDesk = (playedCard, gameState, clients) => {
     };
     for(clientId in clients) {
         clientsHash[clientId].emit("applyEffects", payLoad);
+    }
+}
+
+let jokerEffect = (gameState, clients) => {
+    console.log("Joker");
+    let actualTurn = gameState.actualTurn;
+    let pickUpPlayerTurn = gameState.actualTurn;
+    let numClients = Object.keys(clients).length; 
+    if(gameState.direction > 0) {
+        pickUpPlayerTurn = actualTurn + 1 <= numClients ? actualTurn + 1 : 1;
+    }
+    else {
+        pickUpPlayerTurn = actualTurn - 1 > 0 ? actualTurn - 1 : numClients;
+    }
+    // console.log("turn:", turn);
+    for(clientId in clients) {
+        // console.log(clientId);
+        // console.log(clients[clientId])
+        if(clients[clientId].turn == pickUpPlayerTurn) {
+            let newCards = pickUpPile(gameState, clientId);
+            let turn = actualTurn;
+
+            console.log("[pickUpPile] client: " + clientId + " actual turn: " + turn);
+
+            for(const id in clients) {
+                let payLoad = {
+                    clientId: clientId,
+                    newCards: newCards,
+                    turn: turn
+                };
+                clientsHash[id].emit('pickUpPile', payLoad);
+            }
+
+            break;
+        }
     }
 }
 
@@ -416,7 +468,7 @@ let resetEffects = (gameState, clients) => {
         effects: gameState.effects
     };
     for(clientId in clients) {
-        clientsHash[clientId].emit("removeEffects", payLoad);
+        clientsHash[clientId].emit("resetEffects", payLoad);
     }
 };
 

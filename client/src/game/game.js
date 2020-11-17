@@ -137,6 +137,19 @@ export default class Game extends Phaser.Scene {
             this.pickUpPile(clientId, newCards);
             this.effectLabel.text = "";
             this.effectLabel.visible = false;
+
+            if(this.player.turn == data.turn) {
+                this.player.inTurn = true;
+                this.player.cardPlayed = false;
+                this.player.enableHandInteractions();
+                this.finishButton.setInteractive();
+                this.finishButton.visible = true;
+            }
+            else {
+                this.player.disableHandInteractions();
+                this.finishButton.disableInteractive();
+                this.finishButton.visible = false;
+            }
         });
 
         this.socket.on('discardPile', (data) => {
@@ -470,7 +483,8 @@ export default class Game extends Phaser.Scene {
 
     pickUpPile(clientId, newCards) {
         console.log("pickUpPile");
-        if(this.game.state.pile.topCard.cardObject) {
+        console.log(this.game.state.pile);
+        if(this.game.state.pile.topCard) {
             this.game.state.pile.topCard.cardObject.destroy();
         }
         this.game.state.pile.topCard = null;
@@ -523,10 +537,20 @@ export default class Game extends Phaser.Scene {
     }
 
     checkPickUpPile() {
-        let pile = this.game.state.pile;
+        let pile = this.game.state.pile.pileData;
         let effects = this.game.state.effects;
-        if(pile.pileData.length) {
-            let pileValue = pile.pileData[pile.pileData.length - 1].card.value;
+        if(pile.length) {
+            let pileValue = pile[pile.length - 1].card.value;
+
+            if(effects.transparent) {
+                for(let i = pile.length - 1; i >= 0; i--) {
+                    if(pile[i].card.value != 2) {
+                        pileValue = pile[i].card.value;
+                        break;
+                    }
+                }
+            }
+
             let hand = this.player.hand;
             
             for(const cardIndex in hand) {
@@ -540,9 +564,11 @@ export default class Game extends Phaser.Scene {
                     }
                 }
             }
+
+            return true;
         }
 
-        return true;
+        return false;
     }
     
     drawLobby() {
@@ -636,7 +662,8 @@ export default class Game extends Phaser.Scene {
         this.finishButton.on('pointerdown', () => {
             this.finishButton.disableInteractive();
             this.finishButton.visible = false;
-            
+            console.log("finish turn");
+    
             this.player.disableHandInteractions();
             this.player.inTurn = false
             let payLoad = {
