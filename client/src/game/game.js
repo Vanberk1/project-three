@@ -1,5 +1,14 @@
 import io from 'socket.io-client';
-import InputText from 'phaser3-rex-plugins/plugins/inputtext.js';
+
+import heartSheet from "../assets/heart-sheet.png";
+import clubSheet from "../assets/club-sheet.png";
+import diamondSheet from "../assets/diamond-sheet.png";
+import spadeSheet from "../assets/spade-sheet.png";
+import blueCard from "../assets/blue-card-back.png";
+import redCard from "../assets/red-card-back.png";
+import blueJoker from "../assets/blue-joker.png";
+import redJoker from "../assets/red-joker.png";
+import logo from "../assets/logo.png";
 
 import Card from './Card';
 import Player from './Player';
@@ -216,15 +225,15 @@ export default class Game extends Phaser.Scene {
     } 
 
     preload() {
-        this.load.spritesheet("heart", "src/assets/heart-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("club", "src/assets/club-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("diamond", "src/assets/diamond-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.spritesheet("spade", "src/assets/spade-sheet.png", { frameWidth: 35, frameHeight: 47 });
-        this.load.image("blue-card-back", "src/assets/blue-card-back.png");
-        this.load.image("red-card-back", "src/assets/red-card-back.png");
-        this.load.image("blue-joker", "src/assets/blue-joker.png");
-        this.load.image("red-joker", "src/assets/red-joker.png");
-        this.load.image("logo", "src/assets/logo.png");
+        this.load.spritesheet("heart", heartSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("club", clubSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("diamond", diamondSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("spade", spadeSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.image("blue-card-back", blueCard);
+        this.load.image("red-card-back", redCard);
+        this.load.image("blue-joker", blueJoker);
+        this.load.image("red-joker", redJoker);
+        this.load.image("logo", logo);
 
         this.canvas = this.sys.game.canvas;
     }

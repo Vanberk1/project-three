@@ -1,8 +1,21 @@
-const app = require('express')();
+const express = require('express');
+const app = express();
+const morgan = require('morgan');
+const cors = require('cors');
+
+app.use(morgan('common'));
+
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+    res.sendFile("index.html");
+});
+
 const server = app.listen(3000);
 const io = require('socket.io').listen(server);
 
-const deskData = require('./deskData');
+
+const deskData = require('./src/deskData');
 
 const clientsHash = {};
 const gamesHash = {};
