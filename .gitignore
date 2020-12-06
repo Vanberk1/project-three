@@ -132,6 +132,9 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
+# Webpack bundle
+.client/dist/
+
 # mkdocs documentation
 /site
 

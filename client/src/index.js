@@ -1,6 +1,8 @@
-import Phaser from "phaser";
+import Phaser from 'phaser';
 import InputTextPlugin from 'phaser3-rex-plugins/plugins/inputtext-plugin.js';
-import Game from "./game/game";
+import MenuScene from './scenes/MenuScene';
+import LobbyScene from './scenes/LobbyScene';
+import GameScene from './scenes/GameScene';
 
 const config = {
   type: Phaser.AUTO,
@@ -8,7 +10,9 @@ const config = {
   width: 1200,
   height: 800,
   scene: [
-    Game
+    MenuScene,
+    LobbyScene,
+    GameScene
   ],
   pixelArt: true,
   dom: {
@@ -23,7 +27,6 @@ const config = {
     ]
   }
 };
-
 
 const game = new Phaser.Game(config);
 
