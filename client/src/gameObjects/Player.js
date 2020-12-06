@@ -1,13 +1,5 @@
 import Card from "./Card";
 
-const types = {
-    0: 'club',
-    1: 'diamond',
-    2: 'heart',
-    3: 'spade',
-    4: 'joker'
-};
-
 export default class Player {
     constructor(turn, name, handState) {
         this.name = name;
@@ -60,7 +52,7 @@ export default class Player {
 
     addCardToHand(scene, cardData) {
         let hand = this.hand;
-        let newCard = new Card(cardData.index, cardData.card);
+        let newCard = new Card(cardData.index, { type: cardData.type, value: cardData.value });
         console.log("pick up card:", cardData);
         hand[cardData.index] = newCard;
         this.sortHand();
@@ -111,7 +103,7 @@ export default class Player {
 
     dropCardFromHand(index) {
         let hand = this.hand;
-        this.handDisplayOrder = this.handDisplayOrder.filter(cardIndex => { return cardIndex !== index });
+        this.handDisplayOrder = this.handDisplayOrder.filter(cardIndex => { return parseInt(cardIndex) !== index });
         hand[index].cardObject.destroy();
         delete hand[index];
 

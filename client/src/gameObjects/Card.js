@@ -1,9 +1,9 @@
 const types = {
-    0: 'club',
-    1: 'diamond',
-    2: 'heart',
-    3: 'spade',
-    4: 'joker'
+    1: 'club',
+    2: 'diamond',
+    3: 'heart',
+    4: 'spade',
+    5: 'joker'
 };
 
 export default class Card {

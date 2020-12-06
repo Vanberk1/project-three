@@ -1,6 +1,13 @@
-// import  SocketIO  from '../sockets/SocketIO';
 import io from 'socket.io-client';
 
+import heartSheet from "../assets/heart-sheet.png";
+import clubSheet from "../assets/club-sheet.png";
+import diamondSheet from "../assets/diamond-sheet.png";
+import spadeSheet from "../assets/spade-sheet.png";
+import blueCard from "../assets/blue-card-back.png";
+import redCard from "../assets/red-card-back.png";
+import blueJoker from "../assets/blue-joker.png";
+import redJoker from "../assets/red-joker.png";
 import logo from "../assets/logo.png";
 
 export default class MenuScene extends Phaser.Scene {
@@ -13,39 +20,22 @@ export default class MenuScene extends Phaser.Scene {
     init() {
         this.socket = io.connect('http://localhost:3000')
         this.registry.set('socket', this.socket);
-
-        console.log(this.socket);
     }
 
     preload() {
+        this.load.spritesheet("heart", heartSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("club", clubSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("diamond", diamondSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.spritesheet("spade", spadeSheet, { frameWidth: 35, frameHeight: 47 });
+        this.load.image("blue-card-back", blueCard);
+        this.load.image("red-card-back", redCard);
+        this.load.image("blue-joker", blueJoker);
+        this.load.image("red-joker", redJoker);
         this.load.image("logo", logo);
         this.canvas = this.sys.game.canvas;
     }
 
     create() {
-        this.socket.on('createLobby', data => {
-            if(this.scene.isActive('menu')) {
-                let session = data.session 
-                console.log(session);
-                this.scene.start('lobby', {
-                    sessionId: session.sessionId,
-                    hostId: session.hostId, 
-                    clients: session.clients 
-                });
-            }
-        });
-
-        this.socket.on('joinLobby', data => {
-            if(this.scene.isActive('menu')) {
-                let session = data.session;
-                this.scene.start('lobby', {
-                    sessionId: session.sessionId, 
-                    hostId: session.hostId, 
-                    clients: session.clients 
-                });
-            }
-        });
-
         this.cameras.main.setBackgroundColor("#25282D");
 
         this.logoIMG = this.add.image(this.canvas.width / 2, 200, "logo");
@@ -76,14 +66,9 @@ export default class MenuScene extends Phaser.Scene {
         this.createGameButton.on('pointerdown', () => {
             if(this.nameInput.text != "") {
                 let username = this.nameInput.text;
-                // this.socket.emitCreateLobby(username)
-                console.log(this.socket.id);
-                let payLoad = {
-                    clientId: this.socket.id,
-                    clientName: username
-                }
-                console.log(payLoad);
-                this.socket.emit('createLobby', payLoad);
+                this.scene.start('lobby', {
+                    username: username
+                });
             }
         });
         
@@ -93,13 +78,7 @@ export default class MenuScene extends Phaser.Scene {
             if(this.sessionInput.text != "" && this.nameInput.text != "") {
                 let username = this.nameInput.text;
                 let sessionId = this.sessionInput.text;
-                // this.socket.emitJoinLobby(username, sessionId);
-                let payLoad = {
-                    sessionId: sessionId,
-                    clientId: this.socket.id,
-                    clientName: username
-                }
-                this.socket.emit('joinLobby', payLoad);
+                this.scene.start('lobby', { username: username, sessionId: sessionId });
             }
         });
     }

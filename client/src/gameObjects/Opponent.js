@@ -118,6 +118,7 @@ export default class Opponent {
             cards = this.lookDown;
         }
 
+        console.log(cards);
         for(const cardIndex in cards) {
             if(index == cardIndex) {
                 cards[cardIndex].cardObject.destroy();

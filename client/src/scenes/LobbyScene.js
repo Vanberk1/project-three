@@ -6,12 +6,24 @@ export default class LobbyScene extends Phaser.Scene {
     }
 
     init(data) {
-        this.scene.pause('menu');
         this.socket = this.registry.get('socket');
         this.clientId = this.socket.id;
-        this.session = { id: data.sessionId };
-        this.session.hostId = data.hostId;
-        this.session.clients = data.clients;
+        this.username = data.username;
+        // console.log(data);  
+        
+        if(!data.sessionId) {
+            this.socket.emit('createLobby', {
+                clientId: this.clientId,
+                clientName: this.username
+            });
+        }
+        else {
+            this.socket.emit('joinLobby', {
+                sessionId: data.sessionId,
+                clientId: this.clientId,
+                clientName: this.username
+            });
+        }
     }
 
     preload() {
@@ -19,49 +31,40 @@ export default class LobbyScene extends Phaser.Scene {
     }
 
     create() {
-        this.socket.on('startGame', data => {
-            if(this.scene.isActive('lobby')) {
-                this.scene.start('game', {
-                    sessionId: data.sessionId, 
-                    gameId: data.gameId,
-                    clients: data.clients,
-                    clientState: data.clientState,
-                });
-            }
+        this.cameras.main.setBackgroundColor("#25282D");
+
+        this.socket.on('createLobby', data => {
+            this.session = data.session;
+            this.createLobby();
         });
 
         this.socket.on('joinLobby', data => {
-            if(this.scene.isActive('lobby')) {
-                this.session.id = data.session.sessionId;
-                this.session.hostId = data.session.hostId;
-                this.session.clients = data.session.clients;
-                console.log(this.session);
-                this.clientsNames.forEach(clientName => {
-                    clientName.destroy();
-                });
-                this.clientsNames = [];
-                this.drawClientsNames();
-            }
+            this.session = data.session;
+            this.createLobby();
         });
 
-        this.cameras.main.setBackgroundColor("#25282D");
-        
+        this.socket.on('startGame', data => {
+            this.scene.start('game', {
+                session: this.session, 
+                game: data.game
+            });
+        });
+    }
+
+    createLobby() {
+        // console.log(this.clientId);
+        // console.log(this.session);
         if(this.clientId == this.session.hostId) {
             this.dealText = this.add.text(50, 50, ['Empezar partida']).setFontSize(32).setFontFamily('Trebuchet MS').setColor('#ffffff').setInteractive();
             this.dealText.on('pointerdown', () => {
-                console.log("start game");
-                console.log(this.session);
-                let payLoad = {
-                    sessionId: this.session.id
-                };
-                this.socket.emit('startGame', payLoad);
+                this.socket.emit('startGame', { sessionId: this.session.sessionId });
             });
         }
         
-        this.clientsNames = [];
+    
         this.drawClientsNames();
 
-        let sessionIdText = "Código partida: " + this.session.id;
+        let sessionIdText = "Código partida: " + this.session.sessionId;
         let sessionIdTextElement = document.createElement("p");
         sessionIdTextElement.innerText = sessionIdText;
         sessionIdTextElement.style.color = 'white'; 
@@ -71,6 +74,8 @@ export default class LobbyScene extends Phaser.Scene {
     }
 
     drawClientsNames() {
+        this.clientsNames = [];
+
         let clients = this.session.clients;
         let i = 0;
         for(const id in clients) {
